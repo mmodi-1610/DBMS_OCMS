@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,28 +14,108 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { BookOpen, Video, FileText, Loader2, CheckCircle2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  BookOpen,
+  Video,
+  FileText,
+  Loader2,
+  CheckCircle2,
+  BarChart3,
+  Users,
+  Search,
+} from "lucide-react";
 
 export function InstructorDashboard({ user, data }) {
-  const { instructor, courses } = data;
+  const { instructor, courses, topicsByCourse = [], courseStats = [] } = data;
   const [selectedCourseId, setSelectedCourseId] = useState(null);
   const [notes, setNotes] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
+  const [courseName, setCourseName] = useState("");
+  const [programType, setProgramType] = useState("");
+  const [duration, setDuration] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const router = useRouter();
+  const [topics, setTopics] = useState([]);
+  const [newTopic, setNewTopic] = useState("");
+  const [enrollments, setEnrollments] = useState([]);
+  const [loadingEnrollments, setLoadingEnrollments] = useState(false);
+  const [availableTopics, setAvailableTopics] = useState([]);
+  const [loadingTopics, setLoadingTopics] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showMarksModal, setShowMarksModal] = useState(false);
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [searchStudent, setSearchStudent] = useState("");
+  const [marksToApply, setMarksToApply] = useState({});
 
-  const selectedCourse = courses.find(
-    (c) => c.course_id === selectedCourseId
-  );
+  const selectedCourse = courses.find((c) => c.course_id === selectedCourseId);
 
   function selectCourse(courseId) {
     const course = courses.find((c) => c.course_id === courseId);
     if (course) {
       setSelectedCourseId(courseId);
+      setCourseName(course.course_name || "");
+      setProgramType(course.program_type || "");
+      setDuration(course.duration || "");
       setNotes(course.notes || "");
       setVideoUrl(course.video || "");
       setSaved(false);
+      // Fetch topics for this course from server
+      fetchCourseTopics(courseId);
+      fetchAvailableTopics();
+      // fetch enrollments for marks
+      fetchEnrollments(courseId);
+    }
+  }
+
+  async function fetchEnrollments(courseId) {
+    setLoadingEnrollments(true);
+    try {
+      const res = await fetch(`/api/courses/enrollments?courseId=${courseId}`);
+      if (res.ok) {
+        const json = await res.json();
+        setEnrollments(json.enrollments || []);
+      } else {
+        setEnrollments([]);
+      }
+    } catch (e) {
+      setEnrollments([]);
+    } finally {
+      setLoadingEnrollments(false);
+    }
+  }
+
+  async function fetchAvailableTopics() {
+    setLoadingTopics(true);
+    try {
+      const res = await fetch("/api/courses/topics?all=true");
+      if (res.ok) {
+        const json = await res.json();
+        setAvailableTopics(json.topics || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch available topics:", e);
+    } finally {
+      setLoadingTopics(false);
+    }
+  }
+
+  async function fetchCourseTopics(courseId) {
+    try {
+      const res = await fetch(`/api/courses/topics?courseId=${courseId}`);
+      if (res.ok) {
+        const json = await res.json();
+        setTopics(json.topics || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch course topics:", e);
     }
   }
 
@@ -48,6 +128,9 @@ export function InstructorDashboard({ user, data }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           courseId: selectedCourseId,
+          courseName,
+          programType,
+          duration,
           notes,
           video: videoUrl,
         }),
@@ -77,7 +160,7 @@ export function InstructorDashboard({ user, data }) {
 
       <div id="my-courses" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Course List */}
-        <Card className="lg:col-span-1">
+        <Card className="col-span-1">
           <CardHeader>
             <CardTitle className="text-base font-serif">My Courses</CardTitle>
             <CardDescription>
@@ -127,26 +210,199 @@ export function InstructorDashboard({ user, data }) {
                 <div className="flex items-start justify-between">
                   <div>
                     <CardTitle className="font-serif">
-                      {selectedCourse.course_name}
+                      {courseName || selectedCourse.course_name}
                     </CardTitle>
                     <CardDescription>
                       <Badge variant="secondary" className="mt-1">
-                        {selectedCourse.program_type}
+                        {programType || selectedCourse.program_type}
                       </Badge>
                     </CardDescription>
                   </div>
-                  {saved && (
-                    <Badge
+                  <div className="flex gap-2 items-center">
+                    {saved && (
+                      <Badge
+                        variant="outline"
+                        className="gap-1 border-chart-3 text-chart-3"
+                      >
+                        <CheckCircle2 className="h-3 w-3" />
+                        Saved
+                      </Badge>
+                    )}
+                    <Button
+                      onClick={() => setShowMarksModal(true)}
                       variant="outline"
-                      className="gap-1 border-chart-3 text-chart-3"
+                      size="sm"
                     >
-                      <CheckCircle2 className="h-3 w-3" />
-                      Saved
-                    </Badge>
-                  )}
+                      <Users className="mr-2 h-4 w-4" />
+                      Manage Marks
+                    </Button>
+                    <Button
+                      onClick={() => setShowAnalyticsModal(true)}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <BarChart3 className="mr-2 h-4 w-4" />
+                      Analytics
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col gap-5">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="courseName">Course Name</Label>
+                    <Input
+                      id="courseName"
+                      value={courseName}
+                      onChange={(e) => {
+                        setCourseName(e.target.value);
+                        setSaved(false);
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="programType">Program Type</Label>
+                    <Input
+                      id="programType"
+                      value={programType}
+                      onChange={(e) => {
+                        setProgramType(e.target.value);
+                        setSaved(false);
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label htmlFor="duration">Duration</Label>
+                    <Input
+                      id="duration"
+                      value={duration}
+                      onChange={(e) => {
+                        setDuration(e.target.value);
+                        setSaved(false);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Topics</h3>
+                  <div className="relative mb-3">
+                    <Input
+                      placeholder="Search and add topics..."
+                      value={newTopic}
+                      onChange={(e) => {
+                        setNewTopic(e.target.value);
+                        setShowSuggestions(true);
+                      }}
+                      onFocus={() => setShowSuggestions(true)}
+                      onBlur={() =>
+                        setTimeout(() => setShowSuggestions(false), 200)
+                      }
+                    />
+                    {showSuggestions && newTopic && (
+                      <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        {availableTopics
+                          .filter(
+                            (t) =>
+                              !topics.some(
+                                (ct) => ct.topic_id === t.topic_id,
+                              ) &&
+                              t.topic_name
+                                .toLowerCase()
+                                .includes(newTopic.toLowerCase()),
+                          )
+                          .map((t) => (
+                            <button
+                              key={t.topic_id}
+                              onClick={async () => {
+                                if (!selectedCourseId) return;
+                                const res = await fetch("/api/courses/topics", {
+                                  method: "POST",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify({
+                                    courseId: selectedCourseId,
+                                    topicName: t.topic_name,
+                                  }),
+                                });
+                                if (res.ok) {
+                                  setNewTopic("");
+                                  setShowSuggestions(false);
+                                  fetchCourseTopics(selectedCourseId);
+                                }
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-secondary text-sm"
+                            >
+                              {t.topic_name}
+                            </button>
+                          ))}
+                        {availableTopics.filter(
+                          (t) =>
+                            !topics.some((ct) => ct.topic_id === t.topic_id) &&
+                            t.topic_name
+                              .toLowerCase()
+                              .includes(newTopic.toLowerCase()),
+                        ).length === 0 && (
+                          <button
+                            onClick={async () => {
+                              if (!selectedCourseId || !newTopic) return;
+                              const res = await fetch("/api/courses/topics", {
+                                method: "POST",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                  courseId: selectedCourseId,
+                                  topicName: newTopic,
+                                }),
+                              });
+                              if (res.ok) {
+                                setNewTopic("");
+                                setShowSuggestions(false);
+                                fetchCourseTopics(selectedCourseId);
+                              }
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-secondary text-sm font-medium text-chart-1"
+                          >
+                            + Add new topic: "{newTopic}"
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {topics && topics.length > 0 ? (
+                      topics.map((t) => (
+                        <Badge
+                          key={t.topic_id}
+                          className="flex items-center gap-2"
+                        >
+                          {t.topic_name}
+                          <button
+                            onClick={async () => {
+                              const res = await fetch(
+                                `/api/courses/topics?courseId=${selectedCourseId}&topicId=${t.topic_id}`,
+                                { method: "DELETE" },
+                              );
+                              if (res.ok) {
+                                // Refetch topics from server
+                                fetchCourseTopics(selectedCourseId);
+                              }
+                            }}
+                            className="ml-2 text-xs hover:text-red-400"
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No topics linked to this course yet
+                      </p>
+                    )}
+                  </div>
+                </div>
                 <div className="flex flex-col gap-2">
                   <Label
                     htmlFor="notes"
@@ -185,7 +441,11 @@ export function InstructorDashboard({ user, data }) {
                     }}
                   />
                 </div>
-                <Button onClick={handleSave} disabled={saving} className="w-fit">
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="w-fit"
+                >
                   {saving ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -208,6 +468,276 @@ export function InstructorDashboard({ user, data }) {
             </CardContent>
           )}
         </Card>
+
+        {/* Manage Marks Modal */}
+        <Dialog
+          open={showMarksModal}
+          onOpenChange={(open) => {
+            setShowMarksModal(open);
+            if (!open) {
+              setSearchStudent("");
+              setMarksToApply({});
+            }
+          }}
+        >
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Manage Student Marks</DialogTitle>
+              <DialogDescription>
+                Update evaluation scores for students in{" "}
+                {courseName || selectedCourse?.course_name}
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Search Bar */}
+            <div className="flex gap-2 mb-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search by student ID or name..."
+                  value={searchStudent}
+                  onChange={(e) => setSearchStudent(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {loadingEnrollments ? (
+              <p className="text-center py-4">Loading enrollments...</p>
+            ) : enrollments.length === 0 ? (
+              <p className="text-center py-4 text-muted-foreground">
+                No students enrolled in this course.
+              </p>
+            ) : (
+              (() => {
+                const filteredEnrollments = enrollments.filter(
+                  (e) =>
+                    e.student_id.toString().includes(searchStudent) ||
+                    e.student_name
+                      .toLowerCase()
+                      .includes(searchStudent.toLowerCase()),
+                );
+
+                return (
+                  <>
+                    <div className="text-sm text-muted-foreground mb-2">
+                      Showing {filteredEnrollments.length} of{" "}
+                      {enrollments.length} students
+                    </div>
+                    {filteredEnrollments.length === 0 ? (
+                      <p className="text-center py-4 text-muted-foreground">
+                        No students match your search.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-secondary">
+                            <tr>
+                              <th className="px-4 py-3 text-left">
+                                Student ID
+                              </th>
+                              <th className="px-4 py-3 text-left">
+                                Student Name
+                              </th>
+                              <th className="px-4 py-3 text-left">
+                                Enrolled Date
+                              </th>
+                              <th className="px-4 py-3 text-center">
+                                Evaluation (0-100)
+                              </th>
+                              <th className="px-4 py-3 text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredEnrollments.map((e) => (
+                              <tr
+                                key={e.enroll_id}
+                                className="border-b hover:bg-secondary/50"
+                              >
+                                <td className="px-4 py-3">{e.student_id}</td>
+                                <td className="px-4 py-3 font-medium">
+                                  {e.student_name}
+                                </td>
+                                <td className="px-4 py-3 text-sm text-muted-foreground">
+                                  {new Date(e.enroll_date).toLocaleDateString()}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    defaultValue={e.evaluation ?? ""}
+                                    placeholder="Enter mark"
+                                    onChange={(ev) => {
+                                      const val = Number(ev.target.value);
+                                      setMarksToApply({
+                                        ...marksToApply,
+                                        [e.enroll_id]: val,
+                                      });
+                                    }}
+                                    className="w-20"
+                                  />
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <Button
+                                    onClick={async () => {
+                                      const val = marksToApply[e.enroll_id];
+                                      if (
+                                        val === undefined ||
+                                        Number.isNaN(val)
+                                      )
+                                        return;
+                                      await fetch("/api/courses/marks", {
+                                        method: "PUT",
+                                        headers: {
+                                          "Content-Type": "application/json",
+                                        },
+                                        body: JSON.stringify({
+                                          courseId: selectedCourseId,
+                                          studentId: e.student_id,
+                                          evaluation: val,
+                                        }),
+                                      });
+                                      fetchEnrollments(selectedCourseId);
+                                      setMarksToApply({
+                                        ...marksToApply,
+                                        [e.enroll_id]: undefined,
+                                      });
+                                    }}
+                                    size="sm"
+                                    variant="default"
+                                  >
+                                    Apply
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                );
+              })()
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Course Analytics Modal */}
+        <Dialog open={showAnalyticsModal} onOpenChange={setShowAnalyticsModal}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Course Analytics</DialogTitle>
+              <DialogDescription>
+                Performance metrics for{" "}
+                {courseName || selectedCourse?.course_name}
+              </DialogDescription>
+            </DialogHeader>
+            {selectedCourseId ? (
+              (() => {
+                const stats = courseStats.find(
+                  (s) => s.course_id === selectedCourseId,
+                );
+                const gradedEnrollments = enrollments.filter(
+                  (e) => e.evaluation !== null,
+                );
+                const avgEval =
+                  gradedEnrollments.length > 0
+                    ? (
+                        gradedEnrollments.reduce(
+                          (sum, e) => sum + e.evaluation,
+                          0,
+                        ) / gradedEnrollments.length
+                      ).toFixed(1)
+                    : "N/A";
+                const maxEval =
+                  gradedEnrollments.length > 0
+                    ? Math.max(...gradedEnrollments.map((e) => e.evaluation))
+                    : "N/A";
+                const minEval =
+                  gradedEnrollments.length > 0
+                    ? Math.min(...gradedEnrollments.map((e) => e.evaluation))
+                    : "N/A";
+
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm">
+                          Total Enrolled
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-bold">
+                          {enrollments.length}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          students
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm">Graded</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-bold">
+                          {gradedEnrollments.length}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {enrollments.length > 0
+                            ? `${Math.round(
+                                (gradedEnrollments.length /
+                                  enrollments.length) *
+                                  100,
+                              )}%`
+                            : "0%"}{" "}
+                          complete
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm">Average Score</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-3xl font-bold">{avgEval}</div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          out of 100
+                        </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm">Range</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-sm">
+                          <p>
+                            <span className="font-semibold">Max:</span>{" "}
+                            {maxEval}
+                          </p>
+                          <p>
+                            <span className="font-semibold">Min:</span>{" "}
+                            {minEval}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                );
+              })()
+            ) : (
+              <p className="text-muted-foreground">
+                Select a course to view analytics
+              </p>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
