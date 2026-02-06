@@ -136,7 +136,7 @@ export default async function DashboardPage() {
     }
     case "analyst": {
       const data = await getAnalystData();
-      return <AnalystDashboard user={session} data={data} />;
+      return <AnalystDashboard user={session} />;
     }
     default:
       redirect("/");
