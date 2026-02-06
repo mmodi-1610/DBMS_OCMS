@@ -77,6 +77,7 @@ async function setup() {
       course_id INTEGER REFERENCES course(course_id) ON DELETE CASCADE,
       student_id INTEGER REFERENCES student(student_id) ON DELETE CASCADE,
       enroll_date DATE DEFAULT CURRENT_DATE,
+      approved BOOLEAN DEFAULT FALSE,
       evaluation INTEGER CHECK (evaluation >= 0 AND evaluation <= 100),
       
       UNIQUE(course_id, student_id)
@@ -132,17 +133,17 @@ async function setup() {
 
   // Seed enrollments
   await sql`
-    INSERT INTO enroll (course_id, student_id, enroll_date, evaluation) VALUES
-      (1, 1, '2025-01-15', 85),
-      (1, 2, '2025-01-16', 72),
-      (2, 1, '2025-02-01', 91),
-      (3, 3, '2025-01-20', 88),
-      (4, 2, '2025-02-10', 65),
-      (5, 1, '2025-03-01', NULL),
-      (6, 3, '2025-02-15', 78),
-      (3, 2, '2025-03-05', 55),
-      (7, 3, '2025-03-10', 92),
-      (8, 1, '2025-03-15', NULL)
+    INSERT INTO enroll (course_id, student_id, enroll_date, approved, evaluation) VALUES
+      (1, 1, '2025-01-15', true, 85),
+      (1, 2, '2025-01-16', true, 72),
+      (2, 1, '2025-02-01', true, 91),
+      (3, 3, '2025-01-20', true, 88),
+      (4, 2, '2025-02-10', true, 65),
+      (5, 1, '2025-03-01', true, NULL),
+      (6, 3, '2025-02-15', true, 78),
+      (3, 2, '2025-03-05', true, 55),
+      (7, 3, '2025-03-10', true, 92),
+      (8, 1, '2025-03-15', true, NULL)
   `;
 
   console.log("Database setup complete!");

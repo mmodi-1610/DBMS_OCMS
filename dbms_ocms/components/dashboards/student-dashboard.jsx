@@ -26,9 +26,15 @@ export function StudentDashboard({ user, data }) {
   const [search, setSearch] = useState("");
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [enrolling, setEnrolling] = useState(false);
+  const [processing, setProcessing] = useState(false); // for cancel/delete
   const router = useRouter();
 
-  const enrolledCourseIds = new Set(enrollments.map((e) => e.course_id));
+  const approvedCourseIds = new Set(
+    enrollments.filter((e) => e.approved).map((e) => e.course_id)
+  );
+  const pendingCourseIds = new Set(
+    enrollments.filter((e) => !e.approved).map((e) => e.course_id)
+  );
 
   const filteredCourses = courses.filter((c) => {
     const name = c.course_name.toLowerCase();
@@ -52,9 +58,36 @@ export function StudentDashboard({ user, data }) {
       if (res.ok) {
         setSelectedCourse(null);
         router.refresh();
+      } else {
+        // optionally handle non-ok response
+        console.error("Enroll failed", await res.text());
       }
+    } catch (err) {
+      console.error(err);
     } finally {
       setEnrolling(false);
+    }
+  }
+
+  async function handleCancel(courseId) {
+    if (!student) return;
+    setProcessing(true);
+    try {
+      const res = await fetch("/api/enroll", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseId, studentId: student.student_id }),
+      });
+      if (res.ok) {
+        setSelectedCourse(null);
+        router.refresh();
+      } else {
+        console.error("Cancel request failed", await res.text());
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setProcessing(false);
     }
   }
 
@@ -117,9 +150,7 @@ export function StudentDashboard({ user, data }) {
         <Card>
           <CardHeader>
             <CardTitle className="font-serif">My Enrollments</CardTitle>
-            <CardDescription>
-              Your current courses and grades
-            </CardDescription>
+            <CardDescription>Your current courses and grades</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -146,19 +177,21 @@ export function StudentDashboard({ user, data }) {
                         {e.duration}
                       </td>
                       <td className="py-3 pr-4 text-muted-foreground">
-                        {new Date(e.enroll_date).toLocaleDateString()}
+                        {e.approved && e.enroll_date
+                          ? new Date(e.enroll_date).toLocaleDateString()
+                          : "Requested"}
                       </td>
                       <td className="py-3">
                         {e.evaluation !== null ? (
                           <Badge
-                            variant={
-                              e.evaluation >= 70 ? "default" : "destructive"
-                            }
+                            variant={e.evaluation >= 70 ? "default" : "destructive"}
                           >
                             {e.evaluation}/100
                           </Badge>
+                        ) : e.approved ? (
+                          <Badge variant="outline">In Progress</Badge>
                         ) : (
-                          <Badge variant="outline">Pending</Badge>
+                          <Badge variant="secondary">Request Pending</Badge>
                         )}
                       </td>
                     </tr>
@@ -176,9 +209,7 @@ export function StudentDashboard({ user, data }) {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="font-serif">Browse Courses</CardTitle>
-              <CardDescription>
-                Find and enroll in available courses
-              </CardDescription>
+              <CardDescription>Find and enroll in available courses</CardDescription>
             </div>
             <div className="relative w-full sm:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -194,7 +225,8 @@ export function StudentDashboard({ user, data }) {
         <CardContent>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {filteredCourses.map((course) => {
-              const isEnrolled = enrolledCourseIds.has(course.course_id);
+              const isApproved = approvedCourseIds.has(course.course_id);
+              const isPending = pendingCourseIds.has(course.course_id);
               return (
                 <Card
                   key={course.course_id}
@@ -206,9 +238,14 @@ export function StudentDashboard({ user, data }) {
                       <h3 className="font-medium text-foreground leading-tight">
                         {course.course_name}
                       </h3>
-                      {isEnrolled && (
+                      {isApproved && (
                         <Badge variant="default" className="shrink-0">
                           Enrolled
+                        </Badge>
+                      )}
+                      {isPending && (
+                        <Badge variant="secondary" className="shrink-0">
+                          Request Pending
                         </Badge>
                       )}
                     </div>
@@ -240,7 +277,9 @@ export function StudentDashboard({ user, data }) {
       {/* Course Detail Dialog */}
       <Dialog
         open={!!selectedCourse}
-        onOpenChange={() => setSelectedCourse(null)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedCourse(null);
+        }}
       >
         {selectedCourse && (
           <DialogContent>
@@ -249,26 +288,19 @@ export function StudentDashboard({ user, data }) {
                 {selectedCourse.course_name}
               </DialogTitle>
               <DialogDescription>
-                {selectedCourse.program_type} &middot;{" "}
-                {selectedCourse.duration}
+                {selectedCourse.program_type} &middot; {selectedCourse.duration}
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-4">
               {selectedCourse.notes && (
                 <div>
-                  <h4 className="mb-1 text-sm font-medium text-foreground">
-                    Notes
-                  </h4>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedCourse.notes}
-                  </p>
+                  <h4 className="mb-1 text-sm font-medium text-foreground">Notes</h4>
+                  <p className="text-sm text-muted-foreground">{selectedCourse.notes}</p>
                 </div>
               )}
               {selectedCourse.video && (
                 <div>
-                  <h4 className="mb-1 text-sm font-medium text-foreground">
-                    Video
-                  </h4>
+                  <h4 className="mb-1 text-sm font-medium text-foreground">Video</h4>
                   <a
                     href={selectedCourse.video}
                     className="text-sm text-primary underline"
@@ -279,25 +311,39 @@ export function StudentDashboard({ user, data }) {
                   </a>
                 </div>
               )}
-              {student && !enrolledCourseIds.has(selectedCourse.course_id) && (
-                <Button
-                  onClick={() => handleEnroll(selectedCourse.course_id)}
-                  disabled={enrolling}
-                >
+
+              {/* Enrollment / status actions */}
+              {student && !approvedCourseIds.has(selectedCourse.course_id) && !pendingCourseIds.has(selectedCourse.course_id) && (
+                <Button onClick={() => handleEnroll(selectedCourse.course_id)} disabled={enrolling}>
                   {enrolling ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Enrolling...
+                      Requesting...
                     </>
                   ) : (
-                    "Register for this Course"
+                    "Request Enrollment"
                   )}
                 </Button>
               )}
-              {enrolledCourseIds.has(selectedCourse.course_id) && (
-                <Badge variant="default" className="w-fit">
-                  Already Enrolled
-                </Badge>
+
+              {pendingCourseIds.has(selectedCourse.course_id) && (
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="w-fit">Request Pending</Badge>
+                  <Button onClick={() => handleCancel(selectedCourse.course_id)} disabled={processing} variant="ghost">
+                    {processing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Cancelling...
+                      </>
+                    ) : (
+                      "Cancel Request"
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {approvedCourseIds.has(selectedCourse.course_id) && (
+                <Badge variant="default" className="w-fit">Already Enrolled</Badge>
               )}
             </div>
           </DialogContent>

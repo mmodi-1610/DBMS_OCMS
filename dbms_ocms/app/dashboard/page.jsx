@@ -15,7 +15,7 @@ async function getStudentData(userId) {
   if (!student) return { student: null, enrollments: [], courses: [] };
 
   const enrollments = await sql`
-    SELECT e.enroll_id, e.enroll_date, e.evaluation, c.course_id, c.course_name, c.program_type, c.duration
+    SELECT e.enroll_id, e.enroll_date, e.evaluation, e.approved, c.course_id, c.course_name, c.program_type, c.duration
     FROM enroll e
     JOIN course c ON e.course_id = c.course_id
     WHERE e.student_id = ${student.student_id}

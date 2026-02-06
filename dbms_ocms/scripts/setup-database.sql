@@ -63,6 +63,7 @@ CREATE TABLE enroll (
   course_id INTEGER REFERENCES course(course_id) ON DELETE CASCADE,
   student_id INTEGER REFERENCES student(student_id) ON DELETE CASCADE,
   enroll_date DATE DEFAULT CURRENT_DATE,
+  approved BOOLEAN DEFAULT FALSE,
   evaluation INTEGER CHECK (evaluation >= 0 AND evaluation <= 100),
   UNIQUE(course_id, student_id)
 );
