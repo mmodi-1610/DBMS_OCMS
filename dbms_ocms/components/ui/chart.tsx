@@ -6,7 +6,8 @@ import * as RechartsPrimitive from 'recharts'
 import { cn } from '@/lib/utils'
 
 // Format: { THEME_NAME: CSS_SELECTOR }
-const THEMES = { light: '', dark: '.dark' } as const
+// Only the light theme is used by default; remove the dark selector.
+const THEMES = { light: '' } as const
 
 export type ChartConfig = {
   [k in string]: {

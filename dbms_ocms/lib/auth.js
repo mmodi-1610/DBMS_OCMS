@@ -15,35 +15,40 @@ export async function getSession() {
 }
 
 export async function login(username, password) {
-  const rows = await sql`
-    SELECT id, username, password_hash, role
-    FROM app_user
-    WHERE username = ${username}
-  `;
+  try {
+    const rows = await sql`
+      SELECT id, username, password_hash, role
+      FROM app_user
+      WHERE username = ${username}
+    `;
 
-  if (rows.length === 0) return null;
+    if (rows.length === 0) return null;
 
-  const user = rows[0];
+    const user = rows[0];
 
-  // For demo purposes, password is stored as plain text
-  if (user.password_hash !== password) return null;
+    // For demo purposes, password is stored as plain text
+    if (user.password_hash !== password) return null;
 
-  const sessionUser = {
-    id: user.id,
-    username: user.username,
-    role: user.role,
-  };
+    const sessionUser = {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+    };
 
-  const cookieStore = await cookies();
-  cookieStore.set("quadbase_session", JSON.stringify(sessionUser), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24, // 24 hours
-    path: "/",
-  });
+    const cookieStore = await cookies();
+    cookieStore.set("quadbase_session", JSON.stringify(sessionUser), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24, // 24 hours
+      path: "/",
+    });
 
-  return sessionUser;
+    return sessionUser;
+  } catch (err) {
+    console.error("Database error during login:", err);
+    throw err;
+  }
 }
 
 export async function logout() {

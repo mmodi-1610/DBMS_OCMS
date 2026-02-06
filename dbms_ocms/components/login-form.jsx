@@ -48,6 +48,10 @@ export function LoginForm() {
     }
   }
 
+  function handleSignup() {
+    router.push("/signup");
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-secondary/50 px-4">
       <div className="flex w-full max-w-md flex-col items-center gap-8">
@@ -113,11 +117,20 @@ export function LoginForm() {
                   "Sign in"
                 )}
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full mt-2"
+                onClick={handleSignup}
+                title="Sign up is available for students only"
+              >
+                Sign up (students only)
+              </Button>
             </form>
 
-            <div className="mt-6 border-t pt-4">
+            {/* <div className="mt-6 border-t pt-4">
               <p className="mb-2 text-center text-xs text-muted-foreground">
-                Demo accounts (password: password)
+                Demo accounts (password: password). Sign up is available only for students.
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {[
@@ -140,7 +153,7 @@ export function LoginForm() {
                   </Button>
                 ))}
               </div>
-            </div>
+            </div> */}
           </CardContent>
         </Card>
       </div>

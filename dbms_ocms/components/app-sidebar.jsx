@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   BookOpen,
   GraduationCap,
@@ -34,6 +34,7 @@ function navigateToSection(sectionId) {
 
 export function AppSidebar({ user }) {
   const router = useRouter();
+  const pathname = usePathname();
   const config = roleConfig[user.role];
   const RoleIcon = config.icon;
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -70,6 +71,14 @@ export function AppSidebar({ user }) {
           active={activeSection === "dashboard"}
           onClick={() => handleNav("dashboard")}
         />
+        {(user.role === "student" || user.role === "instructor") && (
+          <SidebarLink
+            icon={Users}
+            label="Profile"
+            active={pathname?.startsWith("/profile")}
+            onClick={() => router.push('/profile')}
+          />
+        )}
         {user.role === "student" && (
           <SidebarLink
             icon={BookOpen}
