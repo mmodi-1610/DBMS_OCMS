@@ -287,16 +287,112 @@ function CoursesTab({ courses }) {
 }
 
 function AssignmentsTab({ instructors, courses, instructorCourses }) {
+
+  // For adding instructor
+  const [openAddInstructor, setOpenAddInstructor] = useState(false);
+  const [addInstructorUsername, setAddInstructorUsername] = useState("");
+  const [addInstructorPassword, setAddInstructorPassword] = useState("");
+  const [addInstructorName, setAddInstructorName] = useState("");
+  const [addInstructorContacts, setAddInstructorContacts] = useState("");
+  const [addInstructorLoading, setAddInstructorLoading] = useState(false);
+  const [addInstructorError, setAddInstructorError] = useState("");
+  const [addInstructorSuccess, setAddInstructorSuccess] = useState("");
+
+  // For removing instructor from course
+  const [openRemoveInstructor, setOpenRemoveInstructor] = useState(false);
+  const [removeInstructorId, setRemoveInstructorId] = useState("");
+  const [removeInstructorCourses, setRemoveInstructorCourses] = useState([]);
+  const [removeInstructorCourseId, setRemoveInstructorCourseId] = useState("");
+  const [removeInstructorLoading, setRemoveInstructorLoading] = useState(false);
+
   const [instructorId, setInstructorId] = useState("");
   const [courseId, setCourseId] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  // Add instructor handler
+  async function handleAddInstructor() {
+    setAddInstructorLoading(true);
+    setAddInstructorError("");
+    setAddInstructorSuccess("");
+    try {
+      const res = await fetch("/api/instructor-course", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: addInstructorUsername,
+          password: addInstructorPassword,
+          name: addInstructorName,
+          contacts: addInstructorContacts,
+        }),
+      });
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (err) {
+        data = { error: "Invalid JSON response from server" };
+      }
+      console.log("Add Instructor Response", res.status, data);
+      if (res.ok) {
+        setAddInstructorSuccess("Instructor added successfully!");
+        setAddInstructorUsername("");
+        setAddInstructorPassword("");
+        setAddInstructorName("");
+        setAddInstructorContacts("");
+        setTimeout(() => {
+          setOpenAddInstructor(false);
+          setAddInstructorSuccess("");
+          router.refresh();
+        }, 1000);
+      } else {
+        setAddInstructorError((data && data.error) || `Failed to add instructor (status ${res.status})`);
+      }
+    } catch (e) {
+      setAddInstructorError("Network or server error: " + e.message);
+    } finally {
+      setAddInstructorLoading(false);
+    }
+  }
+
+  // Remove instructor from course handler
+  async function handleRemoveInstructorFromCourse() {
+    setRemoveInstructorLoading(true);
+    try {
+      const res = await fetch(`/api/instructor-course?instructorId=${removeInstructorId}&courseId=${removeInstructorCourseId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setOpenRemoveInstructor(false);
+        setRemoveInstructorId("");
+        setRemoveInstructorCourseId("");
+        setRemoveInstructorCourses([]);
+        router.refresh();
+      }
+    } finally {
+      setRemoveInstructorLoading(false);
+    }
+  }
+
+  // Fetch courses for an instructor when selected for removal
+  useEffect(() => {
+    async function fetchCourses() {
+      if (!removeInstructorId) return setRemoveInstructorCourses([]);
+      const res = await fetch(`/api/instructor-courses?instructorId=${removeInstructorId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRemoveInstructorCourses(data.courses || []);
+      } else {
+        setRemoveInstructorCourses([]);
+      }
+    }
+    fetchCourses();
+  }, [removeInstructorId]);
 
   async function handleAssign() {
     if (!instructorId || !courseId) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/instructor-course", {
+      // Use a dedicated endpoint for instructor-course assignment
+      const res = await fetch("/api/instructor-course/assign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -317,10 +413,95 @@ function AssignmentsTab({ instructors, courses, instructorCourses }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-serif">
-          Instructor-Course Assignments
-        </CardTitle>
-        <CardDescription>Assign instructors to courses</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base font-serif">Instructor-Course Assignments</CardTitle>
+            <CardDescription>Assign instructors to courses</CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Dialog open={openAddInstructor} onOpenChange={setOpenAddInstructor}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="mr-2 h-4 w-4" /> Add Instructor
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Instructor</DialogTitle>
+                  <DialogDescription>Enter details for the new instructor.</DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-4">
+                  {addInstructorError && <div className="text-red-500 text-sm">{addInstructorError}</div>}
+                  {addInstructorSuccess && <div className="text-green-600 text-sm">{addInstructorSuccess}</div>}
+                  <div className="flex flex-col gap-2">
+                    <Label>Username</Label>
+                    <Input value={addInstructorUsername} onChange={e => setAddInstructorUsername(e.target.value)} placeholder="Username" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Password</Label>
+                    <Input type="password" value={addInstructorPassword} onChange={e => setAddInstructorPassword(e.target.value)} placeholder="Password" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Name</Label>
+                    <Input value={addInstructorName} onChange={e => setAddInstructorName(e.target.value)} placeholder="Full Name" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Contacts</Label>
+                    <Input value={addInstructorContacts} onChange={e => setAddInstructorContacts(e.target.value)} placeholder="Contacts (optional)" />
+                  </div>
+                  <Button onClick={handleAddInstructor} disabled={addInstructorLoading || !addInstructorUsername || !addInstructorPassword || !addInstructorName}>
+                    {addInstructorLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Add Instructor"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={openRemoveInstructor} onOpenChange={setOpenRemoveInstructor}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="secondary">
+                  <Trash2 className="mr-2 h-4 w-4" /> Remove from Course
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Remove Instructor from Course</DialogTitle>
+                  <DialogDescription>Select an instructor and one of their courses to remove them from.</DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <Label>Instructor</Label>
+                    <Select value={removeInstructorId} onValueChange={setRemoveInstructorId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select instructor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {instructors.map(i => (
+                          <SelectItem key={i.instructor_id} value={String(i.instructor_id)}>{i.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Course</Label>
+                    <Select value={removeInstructorCourseId} onValueChange={setRemoveInstructorCourseId} disabled={!removeInstructorCourses.length}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select course" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {removeInstructorCourses.map(c => (
+                          <SelectItem key={c.course_id} value={String(c.course_id)}>{c.course_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={handleRemoveInstructorFromCourse} disabled={removeInstructorLoading || !removeInstructorId || !removeInstructorCourseId}>
+                    {removeInstructorLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Remove from Course"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+      // ...existing code...
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-end">
@@ -399,9 +580,72 @@ function AssignmentsTab({ instructors, courses, instructorCourses }) {
   );
 }
 
+
+// import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+// import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+
 function StudentsTab({ students }) {
   const [deleting, setDeleting] = useState(null);
+  const [openAdd, setOpenAdd] = useState(false);
+  const [openRemove, setOpenRemove] = useState(false);
+  const [addUsername, setAddUsername] = useState("");
+  const [addPassword, setAddPassword] = useState("");
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState("");
+  const [addSuccess, setAddSuccess] = useState("");
+  const [removeStudentId, setRemoveStudentId] = useState("");
+  const [removeCourses, setRemoveCourses] = useState([]);
+  const [removeCourseId, setRemoveCourseId] = useState("");
+  const [removeLoading, setRemoveLoading] = useState(false);
   const router = useRouter();
+
+  async function handleAddStudent() {
+    setAddLoading(true);
+    setAddError("");
+    setAddSuccess("");
+    try {
+      const res = await fetch("/api/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: addUsername, password: addPassword }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAddSuccess("Student added successfully!");
+        setAddUsername("");
+        setAddPassword("");
+        setTimeout(() => {
+          setOpenAdd(false);
+          setAddSuccess("");
+          router.refresh();
+        }, 1000);
+      } else {
+        setAddError(data.error || "Failed to add student");
+      }
+    } catch (e) {
+      setAddError("Network or server error");
+    } finally {
+      setAddLoading(false);
+    }
+  }
+
+  async function handleDeleteFromCourse() {
+    setRemoveLoading(true);
+    try {
+      const res = await fetch(`/api/enroll?studentId=${removeStudentId}&courseId=${removeCourseId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setOpenRemove(false);
+        setRemoveStudentId("");
+        setRemoveCourseId("");
+        setRemoveCourses([]);
+        router.refresh();
+      }
+    } finally {
+      setRemoveLoading(false);
+    }
+  }
 
   async function handleDelete(studentId) {
     setDeleting(studentId);
@@ -417,13 +661,108 @@ function StudentsTab({ students }) {
     }
   }
 
+  // Fetch courses for a student when selected for removal
+  useEffect(() => {
+    async function fetchCourses() {
+      if (!removeStudentId) return setRemoveCourses([]);
+      console.log("Fetching courses for studentId:", removeStudentId);
+      const res = await fetch(`/api/students-courses?studentId=${removeStudentId}`);
+      if (res.ok) {
+        const data = await res.json();
+        console.log("Courses returned:", data.courses);
+        setRemoveCourses(data.courses || []);
+      } else {
+        setRemoveCourses([]);
+      }
+    }
+    fetchCourses();
+  }, [removeStudentId]);
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-serif">All Students</CardTitle>
-        <CardDescription>
-          {students.length} students in the system
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base font-serif">All Students</CardTitle>
+            <CardDescription>
+              {students.length} students in the system
+            </CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Dialog open={openAdd} onOpenChange={setOpenAdd}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="mr-2 h-4 w-4" /> Add Student
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Student</DialogTitle>
+                  <DialogDescription>Enter username and password for the new student.</DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-4">
+                  {addError && <div className="text-red-500 text-sm">{addError}</div>}
+                  {addSuccess && <div className="text-green-600 text-sm">{addSuccess}</div>}
+                  <div className="flex flex-col gap-2">
+                    <Label>Username</Label>
+                    <Input value={addUsername} onChange={e => setAddUsername(e.target.value)} placeholder="Username" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Password</Label>
+                    <Input type="password" value={addPassword} onChange={e => setAddPassword(e.target.value)} placeholder="Password" />
+                  </div>
+                  <Button onClick={handleAddStudent} disabled={addLoading || !addUsername || !addPassword}>
+                    {addLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Add Student"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={openRemove} onOpenChange={setOpenRemove}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="secondary">
+                  <Trash2 className="mr-2 h-4 w-4" /> Remove from Course
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Remove Student from Course</DialogTitle>
+                  <DialogDescription>Select a student and one of their courses to remove them from.</DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <Label>Student</Label>
+                    <Select value={removeStudentId} onValueChange={setRemoveStudentId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select student" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {students.map(s => (
+                          <SelectItem key={s.student_id} value={String(s.student_id)}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Course</Label>
+                    <Select value={removeCourseId} onValueChange={setRemoveCourseId} disabled={!removeCourses.length}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select course" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {removeCourses.map(c => (
+                          <SelectItem key={c.course_id} value={String(c.course_id)}>{c.course_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={handleDeleteFromCourse} disabled={removeLoading || !removeStudentId || !removeCourseId}>
+                    {removeLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Remove from Course"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
