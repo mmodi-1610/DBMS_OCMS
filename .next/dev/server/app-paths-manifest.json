@@ -1,6 +1,0 @@
-{
-  "/api/enroll/route": "app/api/enroll/route.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/page": "app/page.js",
-  "/profile/page": "app/profile/page.js"
-}
