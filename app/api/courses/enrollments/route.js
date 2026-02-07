@@ -17,7 +17,7 @@ export async function GET(request) {
   if (!courseId) {
     return NextResponse.json(
       { error: "courseId is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -28,7 +28,7 @@ export async function GET(request) {
     if (inst.length === 0) {
       return NextResponse.json(
         { error: "Instructor not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -45,7 +45,7 @@ export async function GET(request) {
     }
 
     const rows = await sql`
-      SELECT e.enroll_id, e.enroll_date, e.evaluation,
+      SELECT e.enroll_id, e.enroll_date, e.evaluation, e.approved,
              s.student_id, s.name AS student_name
       FROM enroll e
       JOIN student s ON e.student_id = s.student_id
@@ -57,7 +57,7 @@ export async function GET(request) {
   } catch (err) {
     return NextResponse.json(
       { error: "Failed to fetch enrollments" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
