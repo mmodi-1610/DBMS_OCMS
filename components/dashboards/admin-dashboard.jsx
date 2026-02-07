@@ -287,10 +287,94 @@ function CoursesTab({ courses }) {
 }
 
 function AssignmentsTab({ instructors, courses, instructorCourses }) {
+  const [openAddInstructor, setOpenAddInstructor] = useState(false);
+  const [addInstructorUsername, setAddInstructorUsername] = useState("");
+  const [addInstructorPassword, setAddInstructorPassword] = useState("");
+  const [addInstructorName, setAddInstructorName] = useState("");
+  const [addInstructorContacts, setAddInstructorContacts] = useState("");
+  const [addInstructorLoading, setAddInstructorLoading] = useState(false);
+  const [addInstructorError, setAddInstructorError] = useState("");
+  const [addInstructorSuccess, setAddInstructorSuccess] = useState("");
+
+  const [openRemoveInstructor, setOpenRemoveInstructor] = useState(false);
+  const [removeInstructorId, setRemoveInstructorId] = useState("");
+  const [removeInstructorCourses, setRemoveInstructorCourses] = useState([]);
+  const [removeInstructorCourseId, setRemoveInstructorCourseId] = useState("");
+  const [removeInstructorLoading, setRemoveInstructorLoading] = useState(false);
+
   const [instructorId, setInstructorId] = useState("");
   const [courseId, setCourseId] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  async function handleAddInstructor() {
+    setAddInstructorLoading(true);
+    setAddInstructorError("");
+    setAddInstructorSuccess("");
+    try {
+      const res = await fetch("/api/instructor-course", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: addInstructorUsername,
+          password: addInstructorPassword,
+          name: addInstructorName,
+          contacts: addInstructorContacts,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAddInstructorSuccess("Instructor added successfully!");
+        setAddInstructorUsername("");
+        setAddInstructorPassword("");
+        setAddInstructorName("");
+        setAddInstructorContacts("");
+        setTimeout(() => {
+          setOpenAddInstructor(false);
+          setAddInstructorSuccess("");
+          router.refresh();
+        }, 1000);
+      } else {
+        setAddInstructorError(data.error || "Failed to add instructor");
+      }
+    } catch (e) {
+      setAddInstructorError("Network or server error");
+    } finally {
+      setAddInstructorLoading(false);
+    }
+  }
+
+  async function handleRemoveInstructorFromCourse() {
+    setRemoveInstructorLoading(true);
+    try {
+      const res = await fetch(`/api/instructor-course?instructorId=${removeInstructorId}&courseId=${removeInstructorCourseId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setOpenRemoveInstructor(false);
+        setRemoveInstructorId("");
+        setRemoveInstructorCourseId("");
+        setRemoveInstructorCourses([]);
+        router.refresh();
+      }
+    } finally {
+      setRemoveInstructorLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    async function fetchCourses() {
+      if (!removeInstructorId) return setRemoveInstructorCourses([]);
+      const res = await fetch(`/api/instructor-course?instructorId=${removeInstructorId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRemoveInstructorCourses(data.courses || []);
+      } else {
+        setRemoveInstructorCourses([]);
+      }
+    }
+    fetchCourses();
+  }, [removeInstructorId]);
 
   async function handleAssign() {
     if (!instructorId || !courseId) return;
@@ -317,10 +401,94 @@ function AssignmentsTab({ instructors, courses, instructorCourses }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-serif">
-          Instructor-Course Assignments
-        </CardTitle>
-        <CardDescription>Assign instructors to courses</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base font-serif">Instructor Assignments</CardTitle>
+            <CardDescription>Assign or create instructors</CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Dialog open={openAddInstructor} onOpenChange={setOpenAddInstructor}>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="mr-2 h-4 w-4" /> Add Instructor
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Instructor</DialogTitle>
+                  <DialogDescription>Create a new system user for teaching.</DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-4">
+                  {addInstructorError && <div className="text-red-500 text-sm">{addInstructorError}</div>}
+                  {addInstructorSuccess && <div className="text-green-600 text-sm">{addInstructorSuccess}</div>}
+                  <div className="flex flex-col gap-2">
+                    <Label>Username</Label>
+                    <Input value={addInstructorUsername} onChange={e => setAddInstructorUsername(e.target.value)} placeholder="Username" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Password</Label>
+                    <Input type="password" value={addInstructorPassword} onChange={e => setAddInstructorPassword(e.target.value)} placeholder="Password" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Full Name</Label>
+                    <Input value={addInstructorName} onChange={e => setAddInstructorName(e.target.value)} placeholder="Name" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Contact Info</Label>
+                    <Input value={addInstructorContacts} onChange={e => setAddInstructorContacts(e.target.value)} placeholder="Email/Phone" />
+                  </div>
+                  <Button onClick={handleAddInstructor} disabled={addInstructorLoading}>
+                    {addInstructorLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Instructor"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={openRemoveInstructor} onOpenChange={setOpenRemoveInstructor}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="secondary">
+                  <Trash2 className="mr-2 h-4 w-4" /> Remove Assignment
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Unassign Instructor</DialogTitle>
+                  <DialogDescription>Remove teaching relationship.</DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <Label>Instructor</Label>
+                    <Select value={removeInstructorId} onValueChange={setRemoveInstructorId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select instructor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {instructors.map(i => (
+                          <SelectItem key={i.instructor_id} value={String(i.instructor_id)}>{i.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Course</Label>
+                    <Select value={removeInstructorCourseId} onValueChange={setRemoveInstructorCourseId} disabled={!removeInstructorCourses.length}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select course" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {removeInstructorCourses.map(c => (
+                          <SelectItem key={c.course_id} value={String(c.course_id)}>{c.course_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button onClick={handleRemoveInstructorFromCourse} disabled={removeInstructorLoading}>
+                    {removeInstructorLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Remove from Course"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-end">
@@ -332,10 +500,7 @@ function AssignmentsTab({ instructors, courses, instructorCourses }) {
               </SelectTrigger>
               <SelectContent>
                 {instructors.map((i) => (
-                  <SelectItem
-                    key={i.instructor_id}
-                    value={String(i.instructor_id)}
-                  >
+                  <SelectItem key={i.instructor_id} value={String(i.instructor_id)}>
                     {i.name}
                   </SelectItem>
                 ))}
@@ -350,10 +515,7 @@ function AssignmentsTab({ instructors, courses, instructorCourses }) {
               </SelectTrigger>
               <SelectContent>
                 {courses.map((c) => (
-                  <SelectItem
-                    key={c.course_id}
-                    value={String(c.course_id)}
-                  >
+                  <SelectItem key={c.course_id} value={String(c.course_id)}>
                     {c.course_name}
                   </SelectItem>
                 ))}
@@ -361,14 +523,7 @@ function AssignmentsTab({ instructors, courses, instructorCourses }) {
             </Select>
           </div>
           <Button onClick={handleAssign} disabled={loading}>
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <>
-                <Link2 className="mr-2 h-4 w-4" />
-                Assign
-              </>
-            )}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Link2 className="mr-2 h-4 w-4" />Assign</>}
           </Button>
         </div>
 
@@ -383,12 +538,8 @@ function AssignmentsTab({ instructors, courses, instructorCourses }) {
             <tbody className="divide-y">
               {instructorCourses.map((ic, idx) => (
                 <tr key={idx}>
-                  <td className="py-3 pr-4 font-medium text-foreground">
-                    {ic.instructor_name}
-                  </td>
-                  <td className="py-3 text-muted-foreground">
-                    {ic.course_name}
-                  </td>
+                  <td className="py-3 pr-4 font-medium text-foreground">{ic.instructor_name}</td>
+                  <td className="py-3 text-muted-foreground">{ic.course_name}</td>
                 </tr>
               ))}
             </tbody>
@@ -401,73 +552,191 @@ function AssignmentsTab({ instructors, courses, instructorCourses }) {
 
 function StudentsTab({ students }) {
   const [deleting, setDeleting] = useState(null);
+  const [openAdd, setOpenAdd] = useState(false);
+  const [openRemove, setOpenRemove] = useState(false);
+  
+  // Updated state to include Full Name
+  const [addUsername, setAddUsername] = useState("");
+  const [addPassword, setAddPassword] = useState("");
+  const [addFullName, setAddFullName] = useState("");
+  
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState("");
+  const [addSuccess, setAddSuccess] = useState("");
+  const [removeStudentId, setRemoveStudentId] = useState("");
+  const [removeCourses, setRemoveCourses] = useState([]);
+  const [removeCourseId, setRemoveCourseId] = useState("");
+  const [removeLoading, setRemoveLoading] = useState(false);
   const router = useRouter();
+
+  async function handleAddStudent() {
+    setAddLoading(true);
+    setAddError("");
+    setAddSuccess("");
+    try {
+      const res = await fetch("/api/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          username: addUsername, 
+          password: addPassword,
+          name: addFullName // Passing the new Full Name field
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAddSuccess("Student added successfully!");
+        setAddUsername("");
+        setAddPassword("");
+        setAddFullName(""); // Clear Full Name
+        setTimeout(() => {
+          setOpenAdd(false);
+          setAddSuccess("");
+          router.refresh();
+        }, 1000);
+      } else {
+        setAddError(data.error || "Failed to add student");
+      }
+    } catch (e) {
+      setAddError("Network error");
+    } finally {
+      setAddLoading(false);
+    }
+  }
+
+  async function handleDeleteFromCourse() {
+    setRemoveLoading(true);
+    try {
+      const res = await fetch(`/api/enroll?studentId=${removeStudentId}&courseId=${removeCourseId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setOpenRemove(false);
+        setRemoveStudentId("");
+        setRemoveCourseId("");
+        setRemoveCourses([]);
+        router.refresh();
+      }
+    } finally {
+      setRemoveLoading(false);
+    }
+  }
 
   async function handleDelete(studentId) {
     setDeleting(studentId);
     try {
-      const res = await fetch(`/api/students?id=${studentId}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        router.refresh();
-      }
+      const res = await fetch(`/api/students?id=${studentId}`, { method: "DELETE" });
+      if (res.ok) router.refresh();
     } finally {
       setDeleting(null);
     }
   }
 
+  useEffect(() => {
+    async function fetchCourses() {
+      if (!removeStudentId) return setRemoveCourses([]);
+      const res = await fetch(`/api/students-courses?studentId=${removeStudentId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRemoveCourses(data.courses || []);
+      } else {
+        setRemoveCourses([]);
+      }
+    }
+    fetchCourses();
+  }, [removeStudentId]);
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base font-serif">All Students</CardTitle>
-        <CardDescription>
-          {students.length} students in the system
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base font-serif">All Students</CardTitle>
+            <CardDescription>{students.length} students enrolled</CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Dialog open={openAdd} onOpenChange={setOpenAdd}>
+              <DialogTrigger asChild>
+                <Button size="sm"><Plus className="mr-2 h-4 w-4" /> Add Student</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>New Student Registration</DialogTitle>
+                    <DialogDescription>Register a new student with login credentials and a full name.</DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-4">
+                  {addError && <div className="text-red-500 text-sm">{addError}</div>}
+                  {addSuccess && <div className="text-green-600 text-sm">{addSuccess}</div>}
+                  
+                  <div className="flex flex-col gap-2">
+                    <Label>Full Name</Label>
+                    <Input value={addFullName} onChange={e => setAddFullName(e.target.value)} placeholder="e.g. John Doe" />
+                  </div>
+                  
+                  <div className="flex flex-col gap-2">
+                    <Label>Login Username</Label>
+                    <Input value={addUsername} onChange={e => setAddUsername(e.target.value)} placeholder="username" />
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <Label>Password</Label>
+                    <Input type="password" value={addPassword} onChange={e => setAddPassword(e.target.value)} placeholder="password" />
+                  </div>
+                  
+                  <Button onClick={handleAddStudent} disabled={addLoading || !addFullName || !addUsername || !addPassword}>
+                    {addLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Register Student"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={openRemove} onOpenChange={setOpenRemove}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="secondary"><Trash2 className="mr-2 h-4 w-4" /> Remove Enrollment</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Remove from Course</DialogTitle></DialogHeader>
+                <div className="flex flex-col gap-4">
+                  <Label>Student</Label>
+                  <Select value={removeStudentId} onValueChange={setRemoveStudentId}>
+                    <SelectTrigger><SelectValue placeholder="Select student" /></SelectTrigger>
+                    <SelectContent>
+                      {students.map(s => <SelectItem key={s.student_id} value={String(s.student_id)}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Label>Course</Label>
+                  <Select value={removeCourseId} onValueChange={setRemoveCourseId} disabled={!removeCourses.length}>
+                    <SelectTrigger><SelectValue placeholder="Select course" /></SelectTrigger>
+                    <SelectContent>
+                      {removeCourses.map(c => <SelectItem key={c.course_id} value={String(c.course_id)}>{c.course_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={handleDeleteFromCourse} disabled={removeLoading}>Unenroll</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left text-muted-foreground">
-                <th className="pb-3 pr-4 font-medium">Name</th>
-                <th className="pb-3 pr-4 font-medium">Skill Level</th>
-                <th className="pb-3 pr-4 font-medium">Location</th>
-                <th className="pb-3 pr-4 font-medium">DOB</th>
-                <th className="pb-3 font-medium">Actions</th>
+                <th className="pb-3">Name</th>
+                <th className="pb-3">Level</th>
+                <th className="pb-3">Location</th>
+                <th className="pb-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {students.map((s) => (
                 <tr key={s.student_id}>
-                  <td className="py-3 pr-4 font-medium text-foreground">
-                    {s.name}
-                  </td>
-                  <td className="py-3 pr-4">
-                    <Badge variant="secondary">{s.skill_level}</Badge>
-                  </td>
-                  <td className="py-3 pr-4 text-muted-foreground">
-                    {[s.city, s.state, s.country].filter(Boolean).join(", ")}
-                  </td>
-                  <td className="py-3 pr-4 text-muted-foreground">
-                    {s.dob
-                      ? new Date(s.dob).toLocaleDateString()
-                      : "N/A"}
-                  </td>
-                  <td className="py-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => handleDelete(s.student_id)}
-                      disabled={deleting === s.student_id}
-                    >
-                      {deleting === s.student_id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                      <span className="sr-only">Delete student</span>
+                  <td className="py-3 font-medium">{s.name}</td>
+                  <td className="py-3"><Badge variant="secondary">{s.skill_level}</Badge></td>
+                  <td className="py-3 text-muted-foreground">{[s.city, s.country].filter(Boolean).join(", ")}</td>
+                  <td className="py-3 text-right">
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(s.student_id)} disabled={deleting === s.student_id}>
+                      {deleting === s.student_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-destructive" />}
                     </Button>
                   </td>
                 </tr>
