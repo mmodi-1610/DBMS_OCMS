@@ -68,8 +68,13 @@ export function AppSidebar({ user }) {
         <SidebarLink
           icon={LayoutDashboard}
           label="Dashboard"
-          active={activeSection === "dashboard"}
-          onClick={() => handleNav("dashboard")}
+          active={pathname === "/dashboard"}
+          onClick={() => {
+            // Always navigate to dashboard route
+            if (pathname !== "/dashboard") {
+              router.push("/dashboard");
+            }
+          }}
         />
         {(user.role === "student" || user.role === "instructor") && (
           <SidebarLink
@@ -83,16 +88,36 @@ export function AppSidebar({ user }) {
           <SidebarLink
             icon={BookOpen}
             label="Browse Courses"
-            active={activeSection === "browse-courses"}
-            onClick={() => handleNav("browse-courses")}
+            active={pathname === "/dashboard" && activeSection === "browse-courses"}
+            onClick={() => {
+              // If on dashboard, scroll to section; otherwise navigate to dashboard first
+              if (pathname === "/dashboard") {
+                handleNav("browse-courses");
+              } else {
+                router.push("/dashboard");
+                // After navigation, scroll to browse courses
+                setTimeout(() => {
+                  const el = document.getElementById("browse-courses");
+                  if (el) {
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }
+                }, 100);
+              }
+            }}
           />
         )}
         {user.role === "instructor" && (
           <SidebarLink
             icon={BookOpen}
             label="My Courses"
-            active={activeSection === "my-courses"}
-            onClick={() => handleNav("my-courses")}
+            active={pathname === "/dashboard" && activeSection === "my-courses"}
+            onClick={() => {
+              if (pathname === "/dashboard") {
+                handleNav("my-courses");
+              } else {
+                router.push("/dashboard");
+              }
+            }}
           />
         )}
         {user.role === "admin" && (
@@ -100,20 +125,38 @@ export function AppSidebar({ user }) {
             <SidebarLink
               icon={BookOpen}
               label="Courses"
-              active={activeSection === "admin-courses"}
-              onClick={() => handleNav("admin-courses")}
+              active={pathname === "/dashboard" && activeSection === "admin-courses"}
+              onClick={() => {
+                if (pathname === "/dashboard") {
+                  handleNav("admin-courses");
+                } else {
+                  router.push("/dashboard");
+                }
+              }}
             />
             <SidebarLink
               icon={Link2}
               label="Assignments"
-              active={activeSection === "admin-assignments"}
-              onClick={() => handleNav("admin-assignments")}
+              active={pathname === "/dashboard" && activeSection === "admin-assignments"}
+              onClick={() => {
+                if (pathname === "/dashboard") {
+                  handleNav("admin-assignments");
+                } else {
+                  router.push("/dashboard");
+                }
+              }}
             />
             <SidebarLink
               icon={Users}
               label="Students"
-              active={activeSection === "admin-students"}
-              onClick={() => handleNav("admin-students")}
+              active={pathname === "/dashboard" && activeSection === "admin-students"}
+              onClick={() => {
+                if (pathname === "/dashboard") {
+                  handleNav("admin-students");
+                } else {
+                  router.push("/dashboard");
+                }
+              }}
             />
           </>
         )}
@@ -121,8 +164,14 @@ export function AppSidebar({ user }) {
           <SidebarLink
             icon={BarChart3}
             label="Analytics"
-            active={activeSection === "analytics"}
-            onClick={() => handleNav("analytics")}
+            active={pathname === "/dashboard" && activeSection === "analytics"}
+            onClick={() => {
+              if (pathname === "/dashboard") {
+                handleNav("analytics");
+              } else {
+                router.push("/dashboard");
+              }
+            }}
           />
         )}
       </nav>
