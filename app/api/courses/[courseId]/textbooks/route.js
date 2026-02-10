@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 
-// GET - return all available textbooks (for the suggestions dropdown)
-export async function GET() {
+// GET - return textbooks linked to this specific course
+export async function GET(request, { params }) {
   try {
-    const allTextbooks = await sql`SELECT * FROM textbook ORDER BY name`;
-    return NextResponse.json({ allTextbooks });
+    const { courseId } = await params;
+    const textbooks = await sql`
+      SELECT t.book_id, t.name, t.author, t.publication, t.created_at
+      FROM textbook t
+      JOIN course_textbook ct ON t.book_id = ct.book_id
+      WHERE ct.course_id = ${Number(courseId)}
+      ORDER BY t.name
+    `;
+    return NextResponse.json({ allTextbooks: textbooks });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -16,6 +23,7 @@ export async function POST(request, { params }) {
   try {
     const { courseId } = await params;
     const { bookName, author, publication } = await request.json();
+    console.log(bookName);
     if (!bookName || !bookName.trim()) {
       return NextResponse.json({ error: "bookName is required" }, { status: 400 });
     }
