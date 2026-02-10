@@ -26,9 +26,32 @@ export function middleware(req) {
     }
   }
 
+  // Protect course routes - students only
+  if (pathname.startsWith('/courses/')) {
+    const cookie = req.cookies.get('quadbase_session')
+    if (!cookie?.value) {
+      const url = req.nextUrl.clone()
+      url.pathname = '/'
+      return NextResponse.redirect(url)
+    }
+
+    try {
+      const session = JSON.parse(cookie.value)
+      if (!session || session.role !== 'student') {
+        const url = req.nextUrl.clone()
+        url.pathname = '/dashboard'
+        return NextResponse.redirect(url)
+      }
+    } catch (e) {
+      const url = req.nextUrl.clone()
+      url.pathname = '/'
+      return NextResponse.redirect(url)
+    }
+  }
+
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/profile/:path*', '/profile'],
+  matcher: ['/profile/:path*', '/profile', '/courses/:path*'],
 }
