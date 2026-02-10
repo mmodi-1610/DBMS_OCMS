@@ -67,14 +67,18 @@ export default function SignupPage() {
             <h1 className="text-2xl font-bold tracking-tight text-foreground font-serif">
               QuadBase
             </h1>
-            <p className="text-sm text-muted-foreground">Course Management Platform</p>
+            <p className="text-sm text-muted-foreground">
+              Course Management Platform
+            </p>
           </div>
         </div>
 
         <Card className="w-full">
           <CardHeader className="text-center">
             <CardTitle className="text-xl font-serif">Create account</CardTitle>
-            <CardDescription>Sign up to access QuadBase</CardDescription>
+            <CardDescription>
+              Sign up as a student to access QuadBase
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -93,6 +97,7 @@ export default function SignupPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
+                  autoComplete="username"
                 />
               </div>
 
@@ -105,6 +110,7 @@ export default function SignupPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  autoComplete="new-password"
                 />
               </div>
 
@@ -117,10 +123,9 @@ export default function SignupPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
+                  autoComplete="new-password"
                 />
               </div>
-
-              {/* Signup is only available for students; role is fixed to 'student' */}
 
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
@@ -132,8 +137,22 @@ export default function SignupPage() {
                   "Create account"
                 )}
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full mt-2"
+                onClick={() => router.push("/")}
+              >
+                Back to login
+              </Button>
             </form>
-            {/* footer removed — not required */}
+
+            <div className="mt-6 border-t pt-4">
+              <p className="text-center text-xs text-muted-foreground">
+                Sign up is available for students only. Instructor and admin
+                accounts are created by the administrator.
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
