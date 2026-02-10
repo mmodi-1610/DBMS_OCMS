@@ -59,6 +59,14 @@ export function InstructorDashboard({ user, data }) {
   const [availableTopics, setAvailableTopics] = useState([]);
   const [loadingTopics, setLoadingTopics] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [textbooks, setTextbooks] = useState([]);
+  const [availableTextbooks, setAvailableTextbooks] = useState([]);
+  const [newTextbookName, setNewTextbookName] = useState("");
+  const [newTextbookAuthor, setNewTextbookAuthor] = useState("");
+  const [newTextbookPublication, setNewTextbookPublication] = useState("");
+  const [showTextbookSuggestions, setShowTextbookSuggestions] = useState(false);
+  const [loadingTextbooks, setLoadingTextbooks] = useState(false);
+  const [creatingNewTextbook, setCreatingNewTextbook] = useState(false);
   const [showMarksModal, setShowMarksModal] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
@@ -81,6 +89,9 @@ export function InstructorDashboard({ user, data }) {
       // Fetch topics for this course from server
       fetchCourseTopics(courseId);
       fetchAvailableTopics();
+      // Fetch textbooks for this course
+      fetchCourseTextbooks(courseId);
+      fetchAvailableTextbooks();
       // fetch enrollments for marks
       fetchEnrollments(courseId);
     }
@@ -127,6 +138,30 @@ export function InstructorDashboard({ user, data }) {
       }
     } catch (e) {
       console.error("Failed to fetch course topics:", e);
+    }
+  }
+
+  async function fetchAvailableTextbooks() {
+    setLoadingTextbooks(true);
+    try {
+      const res = await fetch("/api/textbooks");
+      const data = await res.json();
+      setAvailableTextbooks(data.textbooks || []);
+    } catch (error) {
+      console.error("Error fetching available textbooks:", error);
+    } finally {
+      setLoadingTextbooks(false);
+    }
+  }
+
+  async function fetchCourseTextbooks(courseId) {
+    if (!courseId) return;
+    try {
+      const res = await fetch(`/api/courses/${courseId}/textbooks`);
+      const data = await res.json();
+      setTextbooks(data.textbooks || []);
+    } catch (error) {
+      console.error("Error fetching course textbooks:", error);
     }
   }
 
@@ -450,6 +485,226 @@ export function InstructorDashboard({ user, data }) {
                     )}
                   </div>
                 </div>
+
+                {/* Textbooks Section */}
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Textbooks</h3>
+                  <div className="relative mb-3">
+                    <Input
+                      placeholder="Search and add textbooks..."
+                      value={newTextbookName}
+                      onChange={(e) => {
+                        setNewTextbookName(e.target.value);
+                        setShowTextbookSuggestions(true);
+                        setCreatingNewTextbook(false);
+                      }}
+                      onFocus={() => setShowTextbookSuggestions(true)}
+                      onBlur={() =>
+                        setTimeout(() => setShowTextbookSuggestions(false), 200)
+                      }
+                    />
+                    {showTextbookSuggestions && newTextbookName && (
+                      <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        {availableTextbooks
+                          .filter(
+                            (t) =>
+                              !textbooks.some(
+                                (ct) => ct.book_id === t.book_id,
+                              ) &&
+                              t.name
+                                .toLowerCase()
+                                .includes(newTextbookName.toLowerCase()),
+                          )
+                          .map((t) => (
+                            <button
+                              key={t.book_id}
+                              onClick={async () => {
+                                if (!selectedCourseId) return;
+                                const res = await fetch(
+                                  `/api/courses/${selectedCourseId}/textbooks`,
+                                  {
+                                    method: "POST",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                      bookId: t.book_id,
+                                    }),
+                                  },
+                                );
+                                if (res.ok) {
+                                  setNewTextbookName("");
+                                  setNewTextbookAuthor("");
+                                  setNewTextbookPublication("");
+                                  setShowTextbookSuggestions(false);
+                                  setCreatingNewTextbook(false);
+                                  fetchCourseTextbooks(selectedCourseId);
+                                }
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-secondary text-sm"
+                            >
+                              <div className="font-medium">{t.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {t.author && `by ${t.author}`}
+                                {t.publication && ` (${t.publication})`}
+                              </div>
+                            </button>
+                          ))}
+                        {availableTextbooks.filter(
+                          (t) =>
+                            !textbooks.some((ct) => ct.book_id === t.book_id) &&
+                            t.name
+                              .toLowerCase()
+                              .includes(newTextbookName.toLowerCase()),
+                        ).length === 0 && (
+                          <button
+                            onClick={() => setCreatingNewTextbook(true)}
+                            className="w-full text-left px-3 py-2 hover:bg-secondary text-sm text-primary font-medium"
+                          >
+                            + Add new textbook: "{newTextbookName}"
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Author and Publication Fields - Only show when creating new textbook */}
+                  {creatingNewTextbook && (
+                    <div className="space-y-3 mb-3 p-3 bg-secondary/30 rounded-md border">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-2">
+                          <Label htmlFor="textbookAuthor" className="text-xs">
+                            Author
+                          </Label>
+                          <Input
+                            id="textbookAuthor"
+                            placeholder="Author name..."
+                            value={newTextbookAuthor}
+                            onChange={(e) =>
+                              setNewTextbookAuthor(e.target.value)
+                            }
+                            size="sm"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Label
+                            htmlFor="textbookPublication"
+                            className="text-xs"
+                          >
+                            Publication
+                          </Label>
+                          <Input
+                            id="textbookPublication"
+                            placeholder="Publisher name..."
+                            value={newTextbookPublication}
+                            onChange={(e) =>
+                              setNewTextbookPublication(e.target.value)
+                            }
+                            size="sm"
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={async () => {
+                            if (!selectedCourseId || !newTextbookName) return;
+                            const res = await fetch(
+                              `/api/courses/${selectedCourseId}/textbooks`,
+                              {
+                                method: "POST",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                  name: newTextbookName,
+                                  author: newTextbookAuthor || null,
+                                  publication: newTextbookPublication || null,
+                                }),
+                              },
+                            );
+                            if (res.ok) {
+                              setNewTextbookName("");
+                              setNewTextbookAuthor("");
+                              setNewTextbookPublication("");
+                              setShowTextbookSuggestions(false);
+                              setCreatingNewTextbook(false);
+                              fetchCourseTextbooks(selectedCourseId);
+                              fetchAvailableTextbooks();
+                            }
+                          }}
+                          size="sm"
+                          className="flex-1"
+                        >
+                          Add Textbook
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setCreatingNewTextbook(false);
+                            setNewTextbookAuthor("");
+                            setNewTextbookPublication("");
+                          }}
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {textbooks.map((textbook) => (
+                      <Badge
+                        key={textbook.book_id}
+                        variant="secondary"
+                        className="gap-2 py-1"
+                      >
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium text-xs">
+                            {textbook.name}
+                          </span>
+                          {textbook.author && (
+                            <span className="text-xs opacity-75">
+                              by {textbook.author}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={async () => {
+                            if (!selectedCourseId) return;
+                            const res = await fetch(
+                              `/api/courses/${selectedCourseId}/textbooks`,
+                              {
+                                method: "DELETE",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                  bookId: textbook.book_id,
+                                }),
+                              },
+                            );
+                            if (res.ok) {
+                              fetchCourseTextbooks(selectedCourseId);
+                            }
+                          }}
+                          className="text-xs hover:opacity-75"
+                        >
+                          ✕
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                  {textbooks.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      No textbooks linked to this course yet
+                    </p>
+                  )}
+                </div>
+
                 <div className="flex flex-col gap-2">
                   <Label
                     htmlFor="notes"

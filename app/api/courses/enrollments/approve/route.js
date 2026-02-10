@@ -55,7 +55,8 @@ export async function PUT(request) {
       // Approve: set approved to true
       await sql`
         UPDATE enroll
-        SET approved = true
+        SET approved = true,
+            enroll_date = CURRENT_DATE
         WHERE course_id = ${Number(courseId)}
           AND student_id = ${Number(studentId)}
       `;
