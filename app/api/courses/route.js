@@ -24,3 +24,17 @@ export async function POST(request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+    if (!id) {
+      return NextResponse.json({ error: "id is required" }, { status: 400 });
+    }
+    await sql`DELETE FROM course WHERE course_id = ${Number(id)}`;
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

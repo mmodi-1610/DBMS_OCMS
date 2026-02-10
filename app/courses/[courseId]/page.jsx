@@ -1,75 +1,210 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { sql } from "@/lib/db";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Clock, Video, FileText } from "lucide-react";
 
-async function getCourseData(courseId, userId) {
-    // Get student info
-    const studentRows = await sql`
-    SELECT student_id FROM student WHERE user_id = ${userId}
-  `;
-
-    if (studentRows.length === 0) {
-        return { authorized: false, student: null, course: null, enrollment: null, topics: [] };
-    }
-
-    const student = studentRows[0];
-
-    // Check enrollment
-    const enrollmentRows = await sql`
-    SELECT e.enroll_id, e.enroll_date, e.evaluation, e.approved
-    FROM enroll e
-    WHERE e.course_id = ${courseId} AND e.student_id = ${student.student_id}
-  `;
-
-    // Only allow access if enrolled and approved
-    if (enrollmentRows.length === 0 || !enrollmentRows[0].approved) {
-        return { authorized: false, student, course: null, enrollment: null, topics: [] };
-    }
-
-    const enrollment = enrollmentRows[0];
-
-    // Get course details
+async function getCourseData(courseId, userId, userRole) {
+    // Get course details first
     const courseRows = await sql`
     SELECT * FROM course WHERE course_id = ${courseId}
   `;
 
     if (courseRows.length === 0) {
-        return { authorized: false, student, course: null, enrollment, topics: [] };
+        return {
+            authorized: false,
+            user: null,
+            course: null,
+            enrollment: null,
+            topics: [],
+            isEditable: false,
+        };
     }
 
     const course = courseRows[0];
 
-    // Get course topics
-    const topics = await sql`
-    SELECT t.topic_id, t.topic_name
-    FROM course_topic t
-    JOIN course_topic_link l ON t.topic_id = l.topic_id
-    WHERE l.course_id = ${courseId}
-    ORDER BY t.topic_name
-  `;
+    // Handle different user types
+    if (userRole === "student") {
+        const studentRows = await sql`
+        SELECT student_id FROM student WHERE user_id = ${userId}
+      `;
 
-    return { authorized: true, student, course, enrollment, topics };
+        if (studentRows.length === 0) {
+            return {
+                authorized: false,
+                user: null,
+                course: null,
+                enrollment: null,
+                topics: [],
+                isEditable: false,
+            };
+        }
+
+        const student = studentRows[0];
+
+        // Check enrollment
+        const enrollmentRows = await sql`
+        SELECT e.enroll_id, e.enroll_date, e.evaluation, e.approved
+        FROM enroll e
+        WHERE e.course_id = ${courseId} AND e.student_id = ${student.student_id}
+      `;
+
+        // Only allow access if enrolled and approved
+        if (enrollmentRows.length === 0 || !enrollmentRows[0].approved) {
+            return {
+                authorized: false,
+                user: student,
+                course: null,
+                enrollment: null,
+                topics: [],
+                isEditable: false,
+            };
+        }
+
+        const enrollment = enrollmentRows[0];
+
+        // Get course topics
+        let topics = [];
+        try {
+            const topicResults = await sql`
+        SELECT t.topic_id, t.topic_name
+        FROM course_topic t
+        INNER JOIN course_topic_link l ON t.topic_id = l.topic_id
+        WHERE l.course_id = ${courseId}
+        ORDER BY t.topic_name
+      `;
+            topics = topicResults;
+        } catch (err) {
+            console.error("Error fetching topics:", err);
+            topics = [];
+        }
+
+        return {
+            authorized: true,
+            user: student,
+            course,
+            enrollment,
+            topics,
+            isEditable: false,
+        };
+    } else if (userRole === "admin") {
+        // Admin can access any course with edit permission
+        let topics = [];
+        try {
+            const topicResults = await sql`
+        SELECT t.topic_id, t.topic_name
+        FROM course_topic t
+        INNER JOIN course_topic_link l ON t.topic_id = l.topic_id
+        WHERE l.course_id = ${courseId}
+        ORDER BY t.topic_name
+      `;
+            topics = topicResults;
+        } catch (err) {
+            console.error("Error fetching topics:", err);
+            topics = [];
+        }
+
+        return {
+            authorized: true,
+            user: { role: "admin" },
+            course,
+            enrollment: null,
+            topics,
+            isEditable: true,
+        };
+    } else if (userRole === "instructor") {
+        // Instructor can only access their own courses with edit permission
+        const instructorRows = await sql`
+        SELECT instructor_id FROM instructor WHERE user_id = ${userId}
+      `;
+
+        if (instructorRows.length === 0) {
+            return {
+                authorized: false,
+                user: null,
+                course: null,
+                enrollment: null,
+                topics: [],
+                isEditable: false,
+            };
+        }
+
+        const instructor = instructorRows[0];
+
+        // Check if instructor owns this course
+        const aclRows = await sql`
+        SELECT 1 FROM instructor_course
+        WHERE instructor_id = ${instructor.instructor_id} AND course_id = ${courseId}
+      `;
+
+        if (aclRows.length === 0) {
+            return {
+                authorized: false,
+                user: instructor,
+                course: null,
+                enrollment: null,
+                topics: [],
+                isEditable: false,
+            };
+        }
+
+        const topics = await sql`
+        SELECT t.topic_id, t.topic_name
+        FROM course_topic t
+        INNER JOIN course_topic_link l ON t.topic_id = l.topic_id
+        WHERE l.course_id = ${courseId}
+        ORDER BY t.topic_name
+      `;
+
+        return {
+            authorized: true,
+            user: instructor,
+            course,
+            enrollment: null,
+            topics,
+            isEditable: true,
+        };
+    }
+
+    return {
+        authorized: false,
+        user: null,
+        course: null,
+        enrollment: null,
+        topics: [],
+        isEditable: false,
+    };
 }
 
 export default async function CoursePage({ params }) {
     const session = await getSession();
 
-    if (!session || session.role !== 'student') {
+    if (!session) {
         redirect("/");
     }
 
     // In Next.js 16, params is a Promise
     const { courseId } = await params;
-    const data = await getCourseData(parseInt(courseId), session.id);
+    const courseIdNum = parseInt(courseId);
+
+    if (!courseIdNum || isNaN(courseIdNum)) {
+        redirect("/dashboard");
+    }
+
+    const data = await getCourseData(courseIdNum, session.id, session.role);
 
     if (!data.authorized) {
         redirect("/dashboard");
     }
 
-    const { course, enrollment, topics } = data;
+    const { course, enrollment, topics, isEditable } = data;
 
     return (
         <div className="container mx-auto max-w-5xl px-4 py-8">
@@ -79,6 +214,11 @@ export default async function CoursePage({ params }) {
                     <a href="/dashboard" className="text-sm text-primary hover:underline">
                         ← Back to Dashboard
                     </a>
+                    {isEditable && (
+                        <Badge variant="outline" className="ml-auto">
+                            Edit Mode
+                        </Badge>
+                    )}
                 </div>
                 <h1 className="text-3xl font-bold text-foreground font-serif mb-2">
                     {course.course_name}
@@ -89,11 +229,16 @@ export default async function CoursePage({ params }) {
                         <Clock className="h-4 w-4" />
                         {course.duration}
                     </span>
-                    {enrollment.evaluation !== null && (
-                        <Badge variant={enrollment.evaluation >= 70 ? "default" : "destructive"}>
-                            Grade: {enrollment.evaluation}/100
-                        </Badge>
-                    )}
+                    {enrollment?.evaluation !== null &&
+                        enrollment?.evaluation !== undefined && (
+                            <Badge
+                                variant={
+                                    enrollment.evaluation >= 70 ? "default" : "destructive"
+                                }
+                            >
+                                Grade: {enrollment.evaluation}/100
+                            </Badge>
+                        )}
                 </div>
             </div>
 
@@ -109,7 +254,9 @@ export default async function CoursePage({ params }) {
                             </div>
                         </CardHeader>
                         <CardContent>
-                            <p className="text-foreground whitespace-pre-wrap">{course.notes}</p>
+                            <p className="text-foreground whitespace-pre-wrap">
+                                {course.notes}
+                            </p>
                         </CardContent>
                     </Card>
                 )}
@@ -144,9 +291,7 @@ export default async function CoursePage({ params }) {
                                 <BookOpen className="h-5 w-5 text-primary" />
                                 <CardTitle className="font-serif">Course Topics</CardTitle>
                             </div>
-                            <CardDescription>
-                                Topics covered in this course
-                            </CardDescription>
+                            <CardDescription>Topics covered in this course</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -164,34 +309,38 @@ export default async function CoursePage({ params }) {
                     </Card>
                 )}
 
-                {/* Enrollment Info */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="font-serif">Enrollment Details</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid gap-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Enrolled Date:</span>
-                                <span className="font-medium">
-                                    {enrollment.enroll_date
-                                        ? new Date(enrollment.enroll_date).toLocaleDateString()
-                                        : 'N/A'}
-                                </span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Status:</span>
-                                <Badge variant="default">Enrolled</Badge>
-                            </div>
-                            {enrollment.evaluation !== null && (
+                {/* Enrollment Info - Only show for students */}
+                {enrollment && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="font-serif">Enrollment Details</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid gap-2 text-sm">
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Evaluation:</span>
-                                    <span className="font-medium">{enrollment.evaluation}/100</span>
+                                    <span className="text-muted-foreground">Enrolled Date:</span>
+                                    <span className="font-medium">
+                                        {enrollment.enroll_date
+                                            ? new Date(enrollment.enroll_date).toLocaleDateString()
+                                            : "N/A"}
+                                    </span>
                                 </div>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Status:</span>
+                                    <Badge variant="default">Enrolled</Badge>
+                                </div>
+                                {enrollment.evaluation !== null && (
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Evaluation:</span>
+                                        <span className="font-medium">
+                                            {enrollment.evaluation}/100
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </div>
     );

@@ -4,7 +4,7 @@ import { sql } from "@/lib/db";
 export async function POST(request) {
   try {
     const { username, password, name } = await request.json();
-    
+
     if (!username || !password || !name) {
       return NextResponse.json({ error: "Username, password, and Full Name are required" }, { status: 400 });
     }
@@ -24,14 +24,14 @@ export async function POST(request) {
     // 2. Insert into student table (using the provided Full Name)
     const newStudent = await sql`
       INSERT INTO student (student_id, user_id, name, skill_level)
-      VALUES (${nextStudentId}, ${nextUserId}, ${name}, ARRAY['Beginner'])
+      VALUES (${nextStudentId}, ${nextUserId}, ${name}, 'Beginner')
       RETURNING *
     `;
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Student created successfully!", 
-      student: newStudent[0] 
+    return NextResponse.json({
+      success: true,
+      message: "Student created successfully!",
+      student: newStudent[0]
     });
   } catch (error) {
     console.error("Database Error:", error);
@@ -60,7 +60,7 @@ export async function DELETE(request) {
 
     await sql`DELETE FROM enroll WHERE student_id = ${Number(id)}`;
     await sql`DELETE FROM student WHERE student_id = ${Number(id)}`;
-    
+
     if (userId) {
       await sql`DELETE FROM app_user WHERE id = ${Number(userId)}`;
     }

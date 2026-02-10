@@ -14,9 +14,9 @@ export default async function ProfileLayout({ children }) {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="flex h-screen overflow-hidden">
       <AppSidebar user={session} />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 overflow-y-auto bg-background">{children}</main>
     </div>
   )
 }
