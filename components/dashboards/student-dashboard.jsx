@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,11 @@ export function StudentDashboard({ user, data }) {
   const pendingCourseIds = new Set(
     enrollments.filter((e) => !e.approved).map((e) => e.course_id)
   );
+
+  // Only consider approved enrollments for "My Enrollments" display
+  const approvedEnrollments = enrollments.filter((e) => e.approved);
+  const [courseTopics, setCourseTopics] = useState([]);
+  const [loadingTopics, setLoadingTopics] = useState(false);
 
   const filteredCourses = courses.filter((c) => {
     const name = c.course_name.toLowerCase();
@@ -91,6 +96,30 @@ export function StudentDashboard({ user, data }) {
     }
   }
 
+  useEffect(() => {
+    async function fetchTopics(courseId) {
+      setLoadingTopics(true);
+      try {
+        const res = await fetch(`/api/courses/topics?courseId=${courseId}`);
+        if (res.ok) {
+          const json = await res.json();
+          setCourseTopics(json.topics || []);
+        } else {
+          setCourseTopics([]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch topics', err);
+        setCourseTopics([]);
+      } finally {
+        setLoadingTopics(false);
+      }
+    }
+
+    if (selectedCourse) {
+      fetchTopics(selectedCourse.course_id);
+    }
+  }, [selectedCourse]);
+
   return (
     <div className="flex flex-col gap-6 p-6 lg:p-8">
       <div id="dashboard">
@@ -111,7 +140,7 @@ export function StudentDashboard({ user, data }) {
             </div>
             <div>
               <p className="text-2xl font-bold text-foreground">
-                {enrollments.length}
+                {approvedEnrollments.length}
               </p>
               <p className="text-sm text-muted-foreground">Enrolled Courses</p>
             </div>
@@ -146,7 +175,7 @@ export function StudentDashboard({ user, data }) {
       </div>
 
       {/* My Enrollments */}
-      {enrollments.length > 0 && (
+      {approvedEnrollments.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="font-serif">My Enrollments</CardTitle>
@@ -160,13 +189,16 @@ export function StudentDashboard({ user, data }) {
                     <th className="pb-3 pr-4 font-medium">Course</th>
                     <th className="pb-3 pr-4 font-medium">Program</th>
                     <th className="pb-3 pr-4 font-medium">Duration</th>
-                    <th className="pb-3 pr-4 font-medium">Enrolled</th>
                     <th className="pb-3 font-medium">Grade</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {enrollments.map((e) => (
-                    <tr key={e.enroll_id}>
+                  {approvedEnrollments.map((e) => (
+                    <tr
+                      key={e.enroll_id}
+                      className="cursor-pointer transition-colors hover:bg-secondary/50"
+                      onClick={() => router.push(`/courses/${e.course_id}`)}
+                    >
                       <td className="py-3 pr-4 font-medium text-foreground">
                         {e.course_name}
                       </td>
@@ -175,11 +207,6 @@ export function StudentDashboard({ user, data }) {
                       </td>
                       <td className="py-3 pr-4 text-muted-foreground">
                         {e.duration}
-                      </td>
-                      <td className="py-3 pr-4 text-muted-foreground">
-                        {e.approved && e.enroll_date
-                          ? new Date(e.enroll_date).toLocaleDateString()
-                          : "Requested"}
                       </td>
                       <td className="py-3">
                         {e.evaluation !== null ? (
@@ -231,7 +258,14 @@ export function StudentDashboard({ user, data }) {
                 <Card
                   key={course.course_id}
                   className="cursor-pointer transition-shadow hover:shadow-md"
-                  onClick={() => setSelectedCourse(course)}
+                  onClick={() => {
+                    // If enrolled, navigate to course page; otherwise open dialog
+                    if (isApproved) {
+                      router.push(`/courses/${course.course_id}`);
+                    } else {
+                      setSelectedCourse(course);
+                    }
+                  }}
                 >
                   <CardContent className="flex flex-col gap-3 p-4">
                     <div className="flex items-start justify-between gap-2">
@@ -278,7 +312,10 @@ export function StudentDashboard({ user, data }) {
       <Dialog
         open={!!selectedCourse}
         onOpenChange={(open) => {
-          if (!open) setSelectedCourse(null);
+          if (!open) {
+            setSelectedCourse(null);
+            setCourseTopics([]);
+          }
         }}
       >
         {selectedCourse && (
@@ -292,23 +329,44 @@ export function StudentDashboard({ user, data }) {
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-4">
-              {selectedCourse.notes && (
+              {/* Show full notes and video only to enrolled students */}
+              {approvedCourseIds.has(selectedCourse.course_id) ? (
+                <>
+                  {selectedCourse.notes && (
+                    <div>
+                      <h4 className="mb-1 text-sm font-medium text-foreground">Notes</h4>
+                      <p className="text-sm text-muted-foreground">{selectedCourse.notes}</p>
+                    </div>
+                  )}
+                  {selectedCourse.video && (
+                    <div>
+                      <h4 className="mb-1 text-sm font-medium text-foreground">Video</h4>
+                      <a
+                        href={selectedCourse.video}
+                        className="text-sm text-primary underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {selectedCourse.video}
+                      </a>
+                    </div>
+                  )}
+                </>
+              ) : (
+                // Not enrolled: show topics only
                 <div>
-                  <h4 className="mb-1 text-sm font-medium text-foreground">Notes</h4>
-                  <p className="text-sm text-muted-foreground">{selectedCourse.notes}</p>
-                </div>
-              )}
-              {selectedCourse.video && (
-                <div>
-                  <h4 className="mb-1 text-sm font-medium text-foreground">Video</h4>
-                  <a
-                    href={selectedCourse.video}
-                    className="text-sm text-primary underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {selectedCourse.video}
-                  </a>
+                  <h4 className="mb-1 text-sm font-medium text-foreground">Course Topics</h4>
+                  {loadingTopics ? (
+                    <p className="text-sm text-muted-foreground">Loading topics…</p>
+                  ) : courseTopics && courseTopics.length > 0 ? (
+                    <ul className="list-disc pl-5 text-sm text-muted-foreground">
+                      {courseTopics.map((t) => (
+                        <li key={t.topic_id}>{t.topic_name}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No topics available for this course. Enroll to access full course content.</p>
+                  )}
                 </div>
               )}
 

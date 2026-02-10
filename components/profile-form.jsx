@@ -1,118 +1,235 @@
 "use client"
 
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { useRouter } from 'next/navigation'
 
 export default function ProfileForm({ role, data }) {
-  const [form, setForm] = useState(() => ({
-    name: data?.name || '',
-    contacts: data?.contacts || '',
-    skill_level: data?.skill_level || '',
-    city: data?.city || '',
-    state: data?.state || '',
-    country: data?.country || '',
-    dob: data?.dob ? new Date(data.dob).toISOString().slice(0,10) : '',
-  }))
+  const router = useRouter()
   const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState('')
+  const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(false)
 
-  function updateField(k, v) {
-    setForm((s) => ({ ...s, [k]: v }))
+  const [form, setForm] = useState(
+    role === 'student'
+      ? {
+          name: data?.name || '',
+          dob: data?.dob ? new Date(data.dob).toISOString().slice(0, 10) : '',
+          skill_level: data?.skill_level || '',
+          city: data?.city || '',
+          state: data?.state || '',
+          country: data?.country || '',
+        }
+      : {
+          name: data?.name || '',
+          contacts: data?.contacts || '',
+        }
+  )
+
+  const [fieldErrors, setFieldErrors] = useState({})
+
+  function validate() {
+    const errors = {}
+    const trimmedName = form.name.trim()
+
+    // name is NOT NULL and VARCHAR(200)
+    if (!trimmedName) {
+      errors.name = 'Name is required'
+    } else if (trimmedName.length > 200) {
+      errors.name = 'Name must be 200 characters or fewer'
+    }
+
+    if (role === 'student') {
+      if (form.skill_level && form.skill_level.length > 50) {
+        errors.skill_level = 'Skill level must be 50 characters or fewer'
+      }
+      if (form.city && form.city.length > 100) {
+        errors.city = 'City must be 100 characters or fewer'
+      }
+      if (form.state && form.state.length > 100) {
+        errors.state = 'State must be 100 characters or fewer'
+      }
+      if (form.country && form.country.length > 100) {
+        errors.country = 'Country must be 100 characters or fewer'
+      }
+    }
+
+    if (role === 'instructor') {
+      if (form.contacts && form.contacts.length > 200) {
+        errors.contacts = 'Contacts must be 200 characters or fewer'
+      }
+    }
+
+    setFieldErrors(errors)
+    return Object.keys(errors).length === 0
   }
 
-  async function handleSave(e) {
+  function handleChange(e) {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+    // Clear field error on change
+    if (fieldErrors[e.target.name]) {
+      setFieldErrors((prev) => {
+        const copy = { ...prev }
+        delete copy[e.target.name]
+        return copy
+      })
+    }
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault()
-    setMsg('')
+    setError(null)
+    setSuccess(false)
+
+    if (!validate()) return
+
     setSaving(true)
     try {
       const res = await fetch('/api/profile', {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role, ...form }),
+        body: JSON.stringify({ role, ...form, name: form.name.trim() }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Save failed')
-      setMsg('Saved')
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        throw new Error(json.error || 'Failed to save profile')
+      }
+      setSuccess(true)
+      router.refresh()
     } catch (err) {
-      setMsg(err.message)
+      setError(err.message)
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <form onSubmit={handleSave} className="flex flex-col gap-3">
-      <div>
-        <label className="block text-sm font-medium mb-1">Name</label>
-        <input
-          className="w-full rounded border p-2"
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="name">
+          Name <span className="text-destructive">*</span>
+        </Label>
+        <Input
+          id="name"
+          name="name"
           value={form.name}
-          onChange={(e) => updateField('name', e.target.value)}
+          onChange={handleChange}
+          maxLength={200}
+          required
+          placeholder="Enter your full name"
+          className={fieldErrors.name ? 'border-destructive' : ''}
         />
+        {fieldErrors.name && (
+          <p className="text-xs text-destructive">{fieldErrors.name}</p>
+        )}
       </div>
 
       {role === 'student' && (
         <>
-          <div>
-            <label className="block text-sm font-medium mb-1">Skill Level</label>
-            <input
-              className="w-full rounded border p-2"
-              value={form.skill_level}
-              onChange={(e) => updateField('skill_level', e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">City</label>
-            <input
-              className="w-full rounded border p-2"
-              value={form.city}
-              onChange={(e) => updateField('city', e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">State</label>
-            <input
-              className="w-full rounded border p-2"
-              value={form.state}
-              onChange={(e) => updateField('state', e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Country</label>
-            <input
-              className="w-full rounded border p-2"
-              value={form.country}
-              onChange={(e) => updateField('country', e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">DOB</label>
-            <input
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="dob">Date of Birth</Label>
+            <Input
+              id="dob"
+              name="dob"
               type="date"
-              className="w-full rounded border p-2"
               value={form.dob}
-              onChange={(e) => updateField('dob', e.target.value)}
+              onChange={handleChange}
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="skill_level">Skill Level</Label>
+            <Input
+              id="skill_level"
+              name="skill_level"
+              value={form.skill_level}
+              onChange={handleChange}
+              maxLength={50}
+              placeholder="e.g. Beginner, Intermediate, Advanced"
+              className={fieldErrors.skill_level ? 'border-destructive' : ''}
+            />
+            {fieldErrors.skill_level && (
+              <p className="text-xs text-destructive">{fieldErrors.skill_level}</p>
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="city">City</Label>
+            <Input
+              id="city"
+              name="city"
+              value={form.city}
+              onChange={handleChange}
+              maxLength={100}
+              className={fieldErrors.city ? 'border-destructive' : ''}
+            />
+            {fieldErrors.city && (
+              <p className="text-xs text-destructive">{fieldErrors.city}</p>
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="state">State</Label>
+            <Input
+              id="state"
+              name="state"
+              value={form.state}
+              onChange={handleChange}
+              maxLength={100}
+              className={fieldErrors.state ? 'border-destructive' : ''}
+            />
+            {fieldErrors.state && (
+              <p className="text-xs text-destructive">{fieldErrors.state}</p>
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="country">Country</Label>
+            <Input
+              id="country"
+              name="country"
+              value={form.country}
+              onChange={handleChange}
+              maxLength={100}
+              className={fieldErrors.country ? 'border-destructive' : ''}
+            />
+            {fieldErrors.country && (
+              <p className="text-xs text-destructive">{fieldErrors.country}</p>
+            )}
           </div>
         </>
       )}
 
       {role === 'instructor' && (
-        <div>
-          <label className="block text-sm font-medium mb-1">Contacts</label>
-          <input
-            className="w-full rounded border p-2"
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="contacts">Contacts</Label>
+          <Input
+            id="contacts"
+            name="contacts"
             value={form.contacts}
-            onChange={(e) => updateField('contacts', e.target.value)}
+            onChange={handleChange}
+            maxLength={200}
+            placeholder="e.g. email or phone"
+            className={fieldErrors.contacts ? 'border-destructive' : ''}
           />
+          {fieldErrors.contacts && (
+            <p className="text-xs text-destructive">{fieldErrors.contacts}</p>
+          )}
         </div>
       )}
 
-      <div className="flex items-center gap-2">
-        <button type="submit" disabled={saving} className="px-3 py-2 rounded bg-primary text-white">
-          {saving ? 'Saving...' : 'Save'}
-        </button>
-        {msg && <span className="text-sm">{msg}</span>}
-      </div>
+      {error && (
+        <p className="text-sm text-destructive rounded-md bg-destructive/10 px-3 py-2">
+          {error}
+        </p>
+      )}
+      {success && (
+        <p className="text-sm text-emerald-700 rounded-md bg-emerald-50 px-3 py-2 dark:bg-emerald-900/20 dark:text-emerald-300">
+          Profile saved successfully!
+        </p>
+      )}
+
+      <Button type="submit" disabled={saving} className="cursor-pointer">
+        {saving ? 'Saving…' : 'Save Profile'}
+      </Button>
     </form>
   )
 }
