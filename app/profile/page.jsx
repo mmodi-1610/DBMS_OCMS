@@ -24,8 +24,8 @@ export default async function ProfilePage() {
     `
     const student = rows[0] || null
     return (
-      <div className="p-6">
-        <Card className="max-w-md mx-auto">
+      <div className="min-h-screen flex items-center justify-center p-6 py-12">
+        <Card className="max-w-md w-full">
           <CardHeader>
             <CardTitle>Student Profile</CardTitle>
             <CardDescription>Manage your student profile</CardDescription>
@@ -45,8 +45,8 @@ export default async function ProfilePage() {
   const instructor = rows[0] || null
 
   return (
-    <div className="p-6">
-      <Card className="max-w-md mx-auto">
+    <div className="min-h-screen flex items-center justify-center p-6 py-12">
+      <Card className="max-w-md w-full">
         <CardHeader>
           <CardTitle>Instructor Profile</CardTitle>
           <CardDescription>Manage your instructor profile</CardDescription>
