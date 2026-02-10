@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { login } from "@/lib/auth"
+import { hashPassword } from "@/lib/password"
 
 export async function POST(request) {
   const body = await request.json()
@@ -20,9 +21,12 @@ export async function POST(request) {
       return NextResponse.json({ error: "Username already taken" }, { status: 409 })
     }
 
+    // Hash the password before storing
+    const hashedPassword = await hashPassword(password);
+
     const inserted = await sql`
       INSERT INTO app_user (username, password_hash, role)
-      VALUES (${username}, ${password}, ${role})
+      VALUES (${username}, ${hashedPassword}, ${role})
       RETURNING id, username, role
     `
 

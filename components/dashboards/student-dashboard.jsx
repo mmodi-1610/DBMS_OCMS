@@ -290,11 +290,6 @@ export function StudentDashboard({ user, data }) {
                         {course.duration}
                       </span>
                     </div>
-                    {course.notes && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {course.notes}
-                      </p>
-                    )}
                   </CardContent>
                 </Card>
               );
