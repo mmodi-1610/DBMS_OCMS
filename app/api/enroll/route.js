@@ -26,16 +26,18 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   try {
-    const { courseId, studentId } = await request.json();
+    const { searchParams } = new URL(request.url);
+    const courseId = searchParams.get("courseId");
+    const studentId = searchParams.get("studentId");
 
     if (!courseId || !studentId) {
       return NextResponse.json({ error: "courseId and studentId are required" }, { status: 400 });
     }
 
-    // Only allow cancelling pending (not approved) requests
+    // Allow deletion of any enrollment (approved or not)
     await sql`
       DELETE FROM enroll
-      WHERE course_id = ${courseId} AND student_id = ${studentId} AND approved = false
+      WHERE course_id = ${courseId} AND student_id = ${studentId}
     `;
 
     return NextResponse.json({ success: true });

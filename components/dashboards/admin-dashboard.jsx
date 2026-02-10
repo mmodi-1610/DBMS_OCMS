@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useId } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,17 +42,20 @@ import {
   Trash2,
   Loader2,
   Link2,
+  Building2,
 } from "lucide-react";
 
 const sectionToTab = {
   "admin-courses": "courses",
   "admin-assignments": "assignments",
   "admin-students": "students",
+  "admin-universities": "universities",
 };
 
 export function AdminDashboard({ user, data }) {
-  const { courses, students, instructors, instructorCourses } = data;
+  const { courses, students, instructors, instructorCourses, universities } = data;
   const [activeTab, setActiveTab] = useState("courses");
+  const tabIdPrefix = useId();
 
   const handleNavEvent = useCallback((e) => {
     const detail = e.detail;
@@ -80,7 +83,7 @@ export function AdminDashboard({ user, data }) {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="flex items-center gap-4 p-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -120,38 +123,57 @@ export function AdminDashboard({ user, data }) {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-chart-1/10">
+              <Building2 className="h-5 w-5 text-chart-1" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-foreground">
+                {universities.length}
+              </p>
+              <p className="text-sm text-muted-foreground">Universities</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="courses">Courses</TabsTrigger>
-          <TabsTrigger value="assignments">Assignments</TabsTrigger>
-          <TabsTrigger value="students">Students</TabsTrigger>
+          <TabsTrigger value="courses" id={`${tabIdPrefix}-tab-courses`} aria-controls={`${tabIdPrefix}-panel-courses`}>Courses</TabsTrigger>
+          <TabsTrigger value="assignments" id={`${tabIdPrefix}-tab-assignments`} aria-controls={`${tabIdPrefix}-panel-assignments`}>Instructors</TabsTrigger>
+          <TabsTrigger value="students" id={`${tabIdPrefix}-tab-students`} aria-controls={`${tabIdPrefix}-panel-students`}>Students</TabsTrigger>
+          <TabsTrigger value="universities" id={`${tabIdPrefix}-tab-universities`} aria-controls={`${tabIdPrefix}-panel-universities`}>Universities</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="courses" className="mt-4">
-          <CoursesTab courses={courses} />
+        <TabsContent value="courses" className="mt-4" id={`${tabIdPrefix}-panel-courses`} aria-labelledby={`${tabIdPrefix}-tab-courses`}>
+          <CoursesTab courses={courses} universities={universities} />
         </TabsContent>
-        <TabsContent value="assignments" className="mt-4">
+        <TabsContent value="assignments" className="mt-4" id={`${tabIdPrefix}-panel-assignments`} aria-labelledby={`${tabIdPrefix}-tab-assignments`}>
           <AssignmentsTab
             instructors={instructors}
             courses={courses}
             instructorCourses={instructorCourses}
+            universities={universities}
           />
         </TabsContent>
-        <TabsContent value="students" className="mt-4">
+        <TabsContent value="students" className="mt-4" id={`${tabIdPrefix}-panel-students`} aria-labelledby={`${tabIdPrefix}-tab-students`}>
           <StudentsTab students={students} />
+        </TabsContent>
+        <TabsContent value="universities" className="mt-4" id={`${tabIdPrefix}-panel-universities`} aria-labelledby={`${tabIdPrefix}-tab-universities`}>
+          <UniversitiesTab universities={universities} />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function CoursesTab({ courses }) {
+function CoursesTab({ courses, universities }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [programType, setProgramType] = useState("");
   const [duration, setDuration] = useState("");
+  const [universityId, setUniversityId] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -165,6 +187,7 @@ function CoursesTab({ courses }) {
           courseName: name,
           programType,
           duration,
+          universityId: universityId || null,
         }),
       });
       if (res.ok) {
@@ -172,6 +195,7 @@ function CoursesTab({ courses }) {
         setName("");
         setProgramType("");
         setDuration("");
+        setUniversityId("");
         router.refresh();
       }
     } finally {
@@ -237,6 +261,21 @@ function CoursesTab({ courses }) {
                     placeholder="e.g. 8 weeks"
                   />
                 </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="uni">University</Label>
+                  <Select value={universityId} onValueChange={setUniversityId}>
+                    <SelectTrigger id="uni">
+                      <SelectValue placeholder="Select a university (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {universities.map((u) => (
+                        <SelectItem key={u.university_id} value={String(u.university_id)}>
+                          {u.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Button onClick={handleCreate} disabled={loading || !name}>
                   {loading ? (
                     <>
@@ -260,7 +299,8 @@ function CoursesTab({ courses }) {
                 <th className="pb-3 pr-4 font-medium">ID</th>
                 <th className="pb-3 pr-4 font-medium">Course Name</th>
                 <th className="pb-3 pr-4 font-medium">Program</th>
-                <th className="pb-3 font-medium">Duration</th>
+                <th className="pb-3 pr-4 font-medium">Duration</th>
+                <th className="pb-3 font-medium">University</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -275,7 +315,10 @@ function CoursesTab({ courses }) {
                   <td className="py-3 pr-4">
                     <Badge variant="secondary">{c.program_type}</Badge>
                   </td>
-                  <td className="py-3 text-muted-foreground">{c.duration}</td>
+                  <td className="py-3 pr-4 text-muted-foreground">{c.duration}</td>
+                  <td className="py-3 text-muted-foreground">
+                    {universities.find(u => u.university_id === c.university_id)?.name || '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -286,12 +329,13 @@ function CoursesTab({ courses }) {
   );
 }
 
-function AssignmentsTab({ instructors, courses, instructorCourses }) {
+function AssignmentsTab({ instructors, courses, instructorCourses, universities }) {
   const [openAddInstructor, setOpenAddInstructor] = useState(false);
   const [addInstructorUsername, setAddInstructorUsername] = useState("");
   const [addInstructorPassword, setAddInstructorPassword] = useState("");
   const [addInstructorName, setAddInstructorName] = useState("");
   const [addInstructorContacts, setAddInstructorContacts] = useState("");
+  const [addInstructorUniversityId, setAddInstructorUniversityId] = useState("");
   const [addInstructorLoading, setAddInstructorLoading] = useState(false);
   const [addInstructorError, setAddInstructorError] = useState("");
   const [addInstructorSuccess, setAddInstructorSuccess] = useState("");
@@ -320,6 +364,7 @@ function AssignmentsTab({ instructors, courses, instructorCourses }) {
           password: addInstructorPassword,
           name: addInstructorName,
           contacts: addInstructorContacts,
+          universityId: addInstructorUniversityId || null,
         }),
       });
       const data = await res.json();
@@ -329,6 +374,7 @@ function AssignmentsTab({ instructors, courses, instructorCourses }) {
         setAddInstructorPassword("");
         setAddInstructorName("");
         setAddInstructorContacts("");
+        setAddInstructorUniversityId("");
         setTimeout(() => {
           setOpenAddInstructor(false);
           setAddInstructorSuccess("");
@@ -436,6 +482,21 @@ function AssignmentsTab({ instructors, courses, instructorCourses }) {
                   <div className="flex flex-col gap-2">
                     <Label>Contact Info</Label>
                     <Input value={addInstructorContacts} onChange={e => setAddInstructorContacts(e.target.value)} placeholder="Email/Phone" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>University</Label>
+                    <Select value={addInstructorUniversityId} onValueChange={setAddInstructorUniversityId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a university (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {universities.map((u) => (
+                          <SelectItem key={u.university_id} value={String(u.university_id)}>
+                            {u.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <Button onClick={handleAddInstructor} disabled={addInstructorLoading}>
                     {addInstructorLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Instructor"}
@@ -554,12 +615,12 @@ function StudentsTab({ students }) {
   const [deleting, setDeleting] = useState(null);
   const [openAdd, setOpenAdd] = useState(false);
   const [openRemove, setOpenRemove] = useState(false);
-  
+
   // Updated state to include Full Name
   const [addUsername, setAddUsername] = useState("");
   const [addPassword, setAddPassword] = useState("");
   const [addFullName, setAddFullName] = useState("");
-  
+
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState("");
   const [addSuccess, setAddSuccess] = useState("");
@@ -577,8 +638,8 @@ function StudentsTab({ students }) {
       const res = await fetch("/api/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          username: addUsername, 
+        body: JSON.stringify({
+          username: addUsername,
           password: addPassword,
           name: addFullName // Passing the new Full Name field
         }),
@@ -661,18 +722,18 @@ function StudentsTab({ students }) {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>New Student Registration</DialogTitle>
-                    <DialogDescription>Register a new student with login credentials and a full name.</DialogDescription>
+                  <DialogTitle>New Student Registration</DialogTitle>
+                  <DialogDescription>Register a new student with login credentials and a full name.</DialogDescription>
                 </DialogHeader>
                 <div className="flex flex-col gap-4">
                   {addError && <div className="text-red-500 text-sm">{addError}</div>}
                   {addSuccess && <div className="text-green-600 text-sm">{addSuccess}</div>}
-                  
+
                   <div className="flex flex-col gap-2">
                     <Label>Full Name</Label>
                     <Input value={addFullName} onChange={e => setAddFullName(e.target.value)} placeholder="e.g. John Doe" />
                   </div>
-                  
+
                   <div className="flex flex-col gap-2">
                     <Label>Login Username</Label>
                     <Input value={addUsername} onChange={e => setAddUsername(e.target.value)} placeholder="username" />
@@ -682,7 +743,7 @@ function StudentsTab({ students }) {
                     <Label>Password</Label>
                     <Input type="password" value={addPassword} onChange={e => setAddPassword(e.target.value)} placeholder="password" />
                   </div>
-                  
+
                   <Button onClick={handleAddStudent} disabled={addLoading || !addFullName || !addUsername || !addPassword}>
                     {addLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Register Student"}
                   </Button>
@@ -738,6 +799,125 @@ function StudentsTab({ students }) {
                     <Button variant="ghost" size="sm" onClick={() => handleDelete(s.student_id)} disabled={deleting === s.student_id}>
                       {deleting === s.student_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-destructive" />}
                     </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function UniversitiesTab({ universities }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [location, setLocation] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  async function handleCreate() {
+    if (!name) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/universities", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, location }),
+      });
+      if (res.ok) {
+        setOpen(false);
+        setName("");
+        setLocation("");
+        router.refresh();
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base font-serif">All Universities</CardTitle>
+            <CardDescription>
+              {universities.length} universities in the system
+            </CardDescription>
+          </div>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="mr-2 h-4 w-4" />
+                New University
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="font-serif">
+                  Add New University
+                </DialogTitle>
+                <DialogDescription>
+                  Register a new university in the system
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="uniName">University Name</Label>
+                  <Input
+                    id="uniName"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. MIT"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="uniLocation">Location</Label>
+                  <Input
+                    id="uniLocation"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="e.g. Cambridge, MA"
+                  />
+                </div>
+                <Button onClick={handleCreate} disabled={loading || !name}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Add University"
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-muted-foreground">
+                <th className="pb-3 pr-4 font-medium">ID</th>
+                <th className="pb-3 pr-4 font-medium">Name</th>
+                <th className="pb-3 font-medium">Location</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {universities.map((u) => (
+                <tr key={u.university_id}>
+                  <td className="py-3 pr-4 text-muted-foreground">
+                    {u.university_id}
+                  </td>
+                  <td className="py-3 pr-4 font-medium text-foreground">
+                    {u.name}
+                  </td>
+                  <td className="py-3 text-muted-foreground">
+                    {u.location || "—"}
                   </td>
                 </tr>
               ))}
