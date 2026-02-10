@@ -1,14 +1,27 @@
--- QuadBase Database Schema
-
--- Drop tables if they exist (in reverse dependency order)
+-- 1. DROP TABLES (Reverse Dependency Order)
+DROP TABLE IF EXISTS course_topic_link CASCADE;
+DROP TABLE IF EXISTS course_topic CASCADE;
+DROP TABLE IF EXISTS course_textbook CASCADE;
+DROP TABLE IF EXISTS textbook CASCADE;
 DROP TABLE IF EXISTS enroll CASCADE;
 DROP TABLE IF EXISTS instructor_course CASCADE;
 DROP TABLE IF EXISTS course CASCADE;
 DROP TABLE IF EXISTS student CASCADE;
 DROP TABLE IF EXISTS instructor CASCADE;
+DROP TABLE IF EXISTS university CASCADE;
 DROP TABLE IF EXISTS app_user CASCADE;
 
--- Users table for authentication
+-- 2. CREATE TABLES
+
+-- University
+CREATE TABLE university (
+  university_id SERIAL PRIMARY KEY,
+  name VARCHAR(200) NOT NULL,
+  location VARCHAR(200),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- App User
 CREATE TABLE app_user (
   id SERIAL PRIMARY KEY,
   username VARCHAR(50) UNIQUE NOT NULL,
@@ -17,18 +30,19 @@ CREATE TABLE app_user (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Course table
+-- Course
 CREATE TABLE course (
   course_id SERIAL PRIMARY KEY,
   course_name VARCHAR(200) NOT NULL,
   program_type VARCHAR(100),
   duration VARCHAR(50),
+  university_id INTEGER REFERENCES university(university_id) ON DELETE SET NULL,
   notes TEXT,
   video TEXT,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Student table
+-- Student
 CREATE TABLE student (
   student_id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES app_user(id) ON DELETE SET NULL,
@@ -41,23 +55,24 @@ CREATE TABLE student (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Instructor table
+-- Instructor
 CREATE TABLE instructor (
   instructor_id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES app_user(id) ON DELETE SET NULL,
   name VARCHAR(200) NOT NULL,
   contacts VARCHAR(200),
+  university_id INTEGER REFERENCES university(university_id) ON DELETE SET NULL,
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Instructor-Course assignment (many-to-many)
+-- Instructor-Course Join
 CREATE TABLE instructor_course (
   instructor_id INTEGER REFERENCES instructor(instructor_id) ON DELETE CASCADE,
   course_id INTEGER REFERENCES course(course_id) ON DELETE CASCADE,
   PRIMARY KEY (instructor_id, course_id)
 );
 
--- Enrollment table
+-- Enroll
 CREATE TABLE enroll (
   enroll_id SERIAL PRIMARY KEY,
   course_id INTEGER REFERENCES course(course_id) ON DELETE CASCADE,
@@ -68,55 +83,200 @@ CREATE TABLE enroll (
   UNIQUE(course_id, student_id)
 );
 
--- Seed demo data
+-- Textbook
+CREATE TABLE textbook (
+  book_id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  author VARCHAR(200),
+  publication VARCHAR(200),
+  created_at TIMESTAMP DEFAULT NOW()
+);
 
--- Users (password is 'password' hashed with bcrypt - we'll handle this in the app)
--- For seeding, we'll use a placeholder hash
+-- Course-Textbook Join
+CREATE TABLE course_textbook (
+  course_id INTEGER REFERENCES course(course_id) ON DELETE CASCADE,
+  book_id INTEGER REFERENCES textbook(book_id) ON DELETE CASCADE,
+  PRIMARY KEY (course_id, book_id),
+  added_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Course Topic (STRICT SCHEMA)
+CREATE TABLE course_topic (
+  topic_id SERIAL PRIMARY KEY,
+  topic_name VARCHAR(200) UNIQUE NOT NULL
+);
+
+-- Course Topic Link (STRICT SCHEMA)
+CREATE TABLE course_topic_link (
+  course_id INTEGER REFERENCES course(course_id) ON DELETE CASCADE,
+  topic_id INTEGER REFERENCES course_topic(topic_id) ON DELETE CASCADE,
+  PRIMARY KEY (course_id, topic_id)
+);
+
+-- 3. SEED DATA
+
+-- Universities
+INSERT INTO university (name, location) VALUES
+  ('Global Tech University', 'New York'),
+  ('Pacific Institute of Technology', 'San Francisco'),
+  ('European Data Academy', 'Berlin'),
+  ('Royal College of Computing', 'London'),
+  ('Asian Institute of Science', 'Tokyo');
+
+-- Users
 INSERT INTO app_user (username, password_hash, role) VALUES
-  ('admin', '$2b$10$placeholder_admin_hash', 'admin'),
-  ('analyst', '$2b$10$placeholder_analyst_hash', 'analyst'),
-  ('john_instructor', '$2b$10$placeholder_instructor_hash', 'instructor'),
-  ('jane_instructor', '$2b$10$placeholder_instructor_hash', 'instructor'),
-  ('alice_student', '$2b$10$placeholder_student_hash', 'student'),
-  ('bob_student', '$2b$10$placeholder_student_hash', 'student'),
-  ('charlie_student', '$2b$10$placeholder_student_hash', 'student');
+  ('admin', 'password', 'admin'),
+  ('analyst', 'password', 'analyst'),
+  ('john_instructor', 'password', 'instructor'),
+  ('jane_instructor', 'password', 'instructor'),
+  ('mike_instructor', 'password', 'instructor'),
+  ('sarah_instructor', 'password', 'instructor'),
+  ('david_instructor', 'password', 'instructor'),
+  ('alice_student', 'password', 'student'),
+  ('bob_student', 'password', 'student'),
+  ('charlie_student', 'password', 'student'),
+  ('diana_student', 'password', 'student'),
+  ('evan_student', 'password', 'student'),
+  ('fiona_student', 'password', 'student'),
+  ('george_student', 'password', 'student'),
+  ('hannah_student', 'password', 'student'),
+  ('mayank_instructor', 'password', 'instructor'),
+  ('aditya_instructor', 'password', 'instructor'),
+  ('arynan', 'password', 'student'),
+  ('ar009', 'password', 'student');
 
 -- Courses
-INSERT INTO course (course_name, program_type, duration, notes, video) VALUES
-  ('Introduction to Web Development', 'Certificate', '8 weeks', 'Learn HTML, CSS, and JavaScript fundamentals', 'https://example.com/webdev-intro'),
-  ('Advanced React Patterns', 'Professional', '6 weeks', 'Deep dive into React hooks, context, and performance', 'https://example.com/react-advanced'),
-  ('Data Science with Python', 'Degree', '12 weeks', 'Statistical analysis, pandas, numpy, and machine learning basics', 'https://example.com/data-science'),
-  ('Cloud Computing Fundamentals', 'Certificate', '10 weeks', 'AWS, Azure, and GCP basics with hands-on labs', 'https://example.com/cloud-101'),
-  ('Mobile App Development', 'Professional', '8 weeks', 'Build iOS and Android apps with React Native', 'https://example.com/mobile-dev'),
-  ('Database Administration', 'Certificate', '6 weeks', 'PostgreSQL, MySQL, indexing, and query optimization', 'https://example.com/db-admin'),
-  ('Cybersecurity Essentials', 'Degree', '14 weeks', 'Network security, encryption, and ethical hacking', 'https://example.com/cybersec'),
-  ('Machine Learning Engineering', 'Professional', '10 weeks', 'Build and deploy ML models in production', 'https://example.com/ml-eng');
+INSERT INTO course (course_name, program_type, duration, university_id, notes, video) VALUES
+  ('Introduction to Web Development', 'Certificate', '8 weeks', 1, 'HTML/CSS/JS basics', 'https://example.com/webdev'),
+  ('Advanced React Patterns', 'Professional', '6 weeks', 2, 'Hooks and Context', 'https://example.com/react'),
+  ('Data Science with Python', 'Degree', '12 weeks', 3, 'Pandas and NumPy', 'https://example.com/datascience'),
+  ('Cloud Computing Fundamentals', 'Certificate', '10 weeks', 4, 'AWS and Azure', 'https://example.com/cloud'),
+  ('Mobile App Development', 'Professional', '8 weeks', 5, 'React Native', 'https://example.com/mobile'),
+  ('Database Administration', 'Certificate', '6 weeks', 1, 'Postgres Optimization', 'https://example.com/dba'),
+  ('Machine Learning Fundamentals', 'Degree', '14 weeks', 3, 'Neural Networks and Deep Learning', 'https://example.com/ml'),
+  ('DevOps Engineering', 'Professional', '10 weeks', 4, 'CI/CD and Infrastructure', 'https://example.com/devops'),
+  ('Cybersecurity Essentials', 'Certificate', '8 weeks', 2, 'Network Security and Encryption', 'https://example.com/security'),
+  ('Full Stack Development', 'Degree', '16 weeks', 1, 'MERN Stack Complete', 'https://example.com/fullstack'),
+  ('UI/UX Design', 'Professional', '6 weeks', 5, 'Figma and User Research', 'https://example.com/uiux'),
+  ('Blockchain Development', 'Certificate', '12 weeks', 3, 'Smart Contracts and DApps', 'https://example.com/blockchain');
+
+-- Instructors
+INSERT INTO instructor (user_id, name, contacts, university_id) VALUES
+  (3, 'John Williams', 'john.w@quadbase.edu', 1),
+  (4, 'Jane Doe', 'jane.d@quadbase.edu', 2),
+  (5, 'Mike Chen', 'mike.c@quadbase.edu', 3),
+  (6, 'Sarah Patel', 'sarah.p@quadbase.edu', 4),
+  (7, 'David Kim', 'david.k@quadbase.edu', 5),
+  (16, 'Mayank Sharma', 'mayank.s@quadbase.edu', 1),
+  (17, 'Aditya Kumar', 'aditya.k@quadbase.edu', 2);
 
 -- Students
 INSERT INTO student (user_id, name, dob, skill_level, city, state, country) VALUES
-  (5, 'Alice Johnson', '2000-03-15', 'Intermediate', 'San Francisco', 'CA', 'USA'),
-  (6, 'Bob Smith', '1999-07-22', 'Beginner', 'New York', 'NY', 'USA'),
-  (7, 'Charlie Brown', '2001-11-08', 'Advanced', 'London', 'England', 'UK');
+  (8, 'Alice Johnson', '2000-03-15', 'Intermediate', 'San Francisco', 'CA', 'USA'),
+  (9, 'Bob Smith', '1999-07-22', 'Beginner', 'New York', 'NY', 'USA'),
+  (10, 'Charlie Brown', '2001-11-08', 'Advanced', 'London', 'England', 'UK'),
+  (11, 'Diana Lee', '2002-05-20', 'Intermediate', 'Tokyo', 'Tokyo', 'Japan'),
+  (12, 'Evan Garcia', '2000-09-12', 'Beginner', 'Berlin', 'Berlin', 'Germany'),
+  (13, 'Fiona Martinez', '2001-02-28', 'Advanced', 'Seattle', 'WA', 'USA'),
+  (14, 'George Taylor', '1999-12-05', 'Intermediate', 'Austin', 'TX', 'USA'),
+  (15, 'Hannah Wilson', '2002-07-18', 'Beginner', 'Toronto', 'ON', 'Canada'),
+  (18, 'Arynan Modi', '2001-08-15', 'Advanced', 'Mumbai', 'Maharashtra', 'India'),
+  (19, 'Ar009', '2002-01-09', 'Intermediate', 'Bangalore', 'Karnataka', 'India');
 
--- Instructors
-INSERT INTO instructor (user_id, name, contacts) VALUES
-  (3, 'John Williams', 'john.w@quadbase.edu'),
-  (4, 'Jane Doe', 'jane.d@quadbase.edu');
-
--- Instructor-Course assignments
+-- Instructor Courses
 INSERT INTO instructor_course (instructor_id, course_id) VALUES
-  (1, 1), (1, 2), (1, 5),
-  (2, 3), (2, 4), (2, 6);
+  (1, 1), (1, 6), (1, 10),       -- John: Web Dev, DB Admin, Full Stack
+  (2, 2), (2, 5), (2, 9),         -- Jane: React, Mobile, Security
+  (3, 3), (3, 7), (3, 12),        -- Mike: Data Science, ML, Blockchain
+  (4, 4), (4, 8),                 -- Sarah: Cloud, DevOps
+  (5, 11);                        -- David: UI/UX
 
 -- Enrollments
-INSERT INTO enroll (course_id, student_id, enroll_date, evaluation) VALUES
-  (1, 1, '2025-01-15', 85),
-  (1, 2, '2025-01-16', 72),
-  (2, 1, '2025-02-01', 91),
-  (3, 3, '2025-01-20', 88),
-  (4, 2, '2025-02-10', 65),
-  (5, 1, '2025-03-01', NULL),
-  (6, 3, '2025-02-15', 78),
-  (3, 2, '2025-03-05', 55),
-  (7, 3, '2025-03-10', 92),
-  (8, 1, '2025-03-15', NULL);
+INSERT INTO enroll (course_id, student_id, enroll_date, approved, evaluation) VALUES
+  -- Alice (student_id 1)
+  (1, 1, '2025-01-15', TRUE, 85),
+  (2, 1, '2025-02-01', TRUE, 91),
+  (3, 1, '2025-03-10', TRUE, 78),
+  
+  -- Bob (student_id 2)
+  (1, 2, '2025-01-16', TRUE, 72),
+  (4, 2, '2025-02-10', TRUE, 65),
+  (6, 2, '2025-03-05', FALSE, NULL),
+  
+  -- Charlie (student_id 3)
+  (3, 3, '2025-01-20', TRUE, 88),
+  (5, 3, '2025-02-15', TRUE, 93),
+  (7, 3, '2025-03-12', FALSE, NULL),
+  
+  -- Diana (student_id 4)
+  (2, 4, '2025-01-22', TRUE, 82),
+  (8, 4, '2025-02-18', TRUE, 76),
+  
+  -- Evan (student_id 5)
+  (4, 5, '2025-01-25', TRUE, 68),
+  (9, 5, '2025-03-01', FALSE, NULL),
+  
+  -- Fiona (student_id 6)
+  (10, 6, '2025-02-05', TRUE, 95),
+  (11, 6, '2025-02-20', TRUE, 89),
+  
+  -- George (student_id 7)
+  (6, 7, '2025-02-08', TRUE, 74),
+  (12, 7, '2025-03-15', FALSE, NULL),
+  
+  -- Hannah (student_id 8)
+  (7, 8, '2025-02-12', TRUE, 80),
+  (10, 8, '2025-03-18', TRUE, 87);
+
+-- Topics (Generating 20 to ensure IDs like 17 exist)
+INSERT INTO course_topic (topic_name) VALUES
+  ('HTML'), ('CSS'), ('JavaScript'), ('React'), ('Node.js'),
+  ('SQL'), ('PostgreSQL'), ('Python'), ('Pandas'), ('NumPy'),
+  ('AWS'), ('Azure'), ('Docker'), ('Kubernetes'), ('Linux'),
+  ('Git'), ('Mobile UI'), ('Swift'), ('Kotlin'), ('Flutter');
+
+-- Topic Links (STRICT DATA - Removed extra column)
+INSERT INTO course_topic_link (course_id, topic_id) VALUES
+  (1, 1), (1, 2), (1, 3),         -- Web Dev -> HTML, CSS, JS
+  (2, 3), (2, 4),                 -- React -> JS, React
+  (3, 8), (3, 9), (3, 10),        -- Data Science -> Python, Pandas, NumPy
+  (4, 11), (4, 12),               -- Cloud -> AWS, Azure
+  (5, 3), (5, 17),                -- Mobile -> JS, Mobile UI
+  (6, 6), (6, 7),                 -- DB Admin -> SQL, PostgreSQL
+  (7, 8), (7, 9),                 -- ML -> Python, Pandas
+  (8, 13), (8, 14),               -- DevOps -> Docker, Kubernetes
+  (9, 15),                        -- Security -> Linux
+  (10, 3), (10, 4), (10, 5),      -- Full Stack -> JS, React, Node.js
+  (11, 16),                       -- UI/UX -> Git (design versioning)
+  (12, 8), (12, 18);              -- Blockchain -> Python, Swift
+
+-- Textbooks
+INSERT INTO textbook (name, author, publication) VALUES
+  ('HTML and CSS: Design and Build Websites', 'Jon Duckett', 'Wiley'),
+  ('JavaScript: The Good Parts', 'Douglas Crockford', 'O''Reilly Media'),
+  ('Learning React', 'Alex Banks & Eve Porcello', 'O''Reilly Media'),
+  ('Python for Data Analysis', 'Wes McKinney', 'O''Reilly Media'),
+  ('Cloud Native DevOps with Kubernetes', 'John Arundel & Justin Domingus', 'O''Reilly Media'),
+  ('React Native in Action', 'Nader Dabit', 'Manning'),
+  ('PostgreSQL: Up and Running', 'Regina Obe & Leo Hsu', 'O''Reilly Media'),
+  ('Hands-On Machine Learning', 'Aurélien Géron', 'O''Reilly Media'),
+  ('The DevOps Handbook', 'Gene Kim et al.', 'IT Revolution Press'),
+  ('The Web Application Hacker''s Handbook', 'Dafydd Stuttard', 'Wiley'),
+  ('Full Stack React', 'Anthony Accomazzo et al.', 'Fullstack.io'),
+  ('Don''t Make Me Think', 'Steve Krug', 'New Riders'),
+  ('Mastering Blockchain', 'Imran Bashir', 'Packt Publishing');
+
+-- Textbook Links
+INSERT INTO course_textbook (course_id, book_id) VALUES
+  (1, 1), (1, 2),                 -- Web Dev
+  (2, 3),                         -- React
+  (3, 4),                         -- Data Science
+  (4, 5),                         -- Cloud
+  (5, 6),                         -- Mobile
+  (6, 7),                         -- DB Admin
+  (7, 4), (7, 8),                 -- ML
+  (8, 5), (8, 9),                 -- DevOps
+  (9, 10),                        -- Security
+  (10, 2), (10, 3), (10, 11),     -- Full Stack
+  (11, 12),                       -- UI/UX
+  (12, 13);                       -- Blockchain

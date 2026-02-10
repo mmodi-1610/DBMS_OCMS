@@ -159,7 +159,7 @@ export function InstructorDashboard({ user, data }) {
     try {
       const res = await fetch(`/api/courses/${courseId}/textbooks`);
       const data = await res.json();
-      setTextbooks(data.textbooks || []);
+      setTextbooks(data.allTextbooks || []);
     } catch (error) {
       console.error("Error fetching course textbooks:", error);
     }
@@ -231,21 +231,19 @@ export function InstructorDashboard({ user, data }) {
                 type="button"
                 key={course.course_id}
                 onClick={() => selectCourse(course.course_id)}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                  selectedCourseId === course.course_id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${selectedCourseId === course.course_id
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  }`}
               >
                 <BookOpen className="h-4 w-4 shrink-0" />
                 <div className="flex-1 overflow-hidden">
                   <p className="truncate font-medium">{course.course_name}</p>
                   <p
-                    className={`text-xs ${
-                      selectedCourseId === course.course_id
-                        ? "text-primary-foreground/70"
-                        : "text-muted-foreground"
-                    }`}
+                    className={`text-xs ${selectedCourseId === course.course_id
+                      ? "text-primary-foreground/70"
+                      : "text-muted-foreground"
+                      }`}
                   >
                     {course.program_type} &middot; {course.duration}
                   </p>
@@ -426,30 +424,30 @@ export function InstructorDashboard({ user, data }) {
                               .toLowerCase()
                               .includes(newTopic.toLowerCase()),
                         ).length === 0 && (
-                          <button
-                            onClick={async () => {
-                              if (!selectedCourseId || !newTopic) return;
-                              const res = await fetch("/api/courses/topics", {
-                                method: "POST",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                },
-                                body: JSON.stringify({
-                                  courseId: selectedCourseId,
-                                  topicName: newTopic,
-                                }),
-                              });
-                              if (res.ok) {
-                                setNewTopic("");
-                                setShowSuggestions(false);
-                                fetchCourseTopics(selectedCourseId);
-                              }
-                            }}
-                            className="w-full text-left px-3 py-2 hover:bg-secondary text-sm font-medium text-chart-1"
-                          >
-                            + Add new topic: "{newTopic}"
-                          </button>
-                        )}
+                            <button
+                              onClick={async () => {
+                                if (!selectedCourseId || !newTopic) return;
+                                const res = await fetch("/api/courses/topics", {
+                                  method: "POST",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify({
+                                    courseId: selectedCourseId,
+                                    topicName: newTopic,
+                                  }),
+                                });
+                                if (res.ok) {
+                                  setNewTopic("");
+                                  setShowSuggestions(false);
+                                  fetchCourseTopics(selectedCourseId);
+                                }
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-secondary text-sm font-medium text-chart-1"
+                            >
+                              + Add new topic: "{newTopic}"
+                            </button>
+                          )}
                       </div>
                     )}
                   </div>
@@ -557,13 +555,13 @@ export function InstructorDashboard({ user, data }) {
                               .toLowerCase()
                               .includes(newTextbookName.toLowerCase()),
                         ).length === 0 && (
-                          <button
-                            onClick={() => setCreatingNewTextbook(true)}
-                            className="w-full text-left px-3 py-2 hover:bg-secondary text-sm text-primary font-medium"
-                          >
-                            + Add new textbook: "{newTextbookName}"
-                          </button>
-                        )}
+                            <button
+                              onClick={() => setCreatingNewTextbook(true)}
+                              className="w-full text-left px-3 py-2 hover:bg-secondary text-sm text-primary font-medium"
+                            >
+                              + Add new textbook: "{newTextbookName}"
+                            </button>
+                          )}
                       </div>
                     )}
                   </div>
@@ -618,7 +616,7 @@ export function InstructorDashboard({ user, data }) {
                                   "Content-Type": "application/json",
                                 },
                                 body: JSON.stringify({
-                                  name: newTextbookName,
+                                  bookName: newTextbookName,
                                   author: newTextbookAuthor || null,
                                   publication: newTextbookPublication || null,
                                 }),
@@ -676,15 +674,9 @@ export function InstructorDashboard({ user, data }) {
                           onClick={async () => {
                             if (!selectedCourseId) return;
                             const res = await fetch(
-                              `/api/courses/${selectedCourseId}/textbooks`,
+                              `/api/courses/${selectedCourseId}/textbooks?bookId=${textbook.book_id}`,
                               {
                                 method: "DELETE",
-                                headers: {
-                                  "Content-Type": "application/json",
-                                },
-                                body: JSON.stringify({
-                                  bookId: textbook.book_id,
-                                }),
                               },
                             );
                             if (res.ok) {
@@ -961,11 +953,11 @@ export function InstructorDashboard({ user, data }) {
                 const avgEval =
                   gradedEnrollments.length > 0
                     ? (
-                        gradedEnrollments.reduce(
-                          (sum, e) => sum + e.evaluation,
-                          0,
-                        ) / gradedEnrollments.length
-                      ).toFixed(1)
+                      gradedEnrollments.reduce(
+                        (sum, e) => sum + e.evaluation,
+                        0,
+                      ) / gradedEnrollments.length
+                    ).toFixed(1)
                     : "N/A";
                 const maxEval =
                   gradedEnrollments.length > 0
@@ -1021,10 +1013,10 @@ export function InstructorDashboard({ user, data }) {
                         <p className="text-xs text-muted-foreground mt-1">
                           {enrollments.length > 0
                             ? `${Math.round(
-                                (gradedEnrollments.length /
-                                  enrollments.length) *
-                                  100,
-                              )}%`
+                              (gradedEnrollments.length /
+                                enrollments.length) *
+                              100,
+                            )}%`
                             : "0%"}{" "}
                           complete
                         </p>
