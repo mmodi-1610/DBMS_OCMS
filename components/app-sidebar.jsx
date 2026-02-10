@@ -192,6 +192,14 @@ export function AppSidebar({ user }) {
         <Button
           variant="ghost"
           className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          onClick={() => router.push('/change-password')}
+        >
+          <Settings className="h-4 w-4" />
+          Change Password
+        </Button>
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           onClick={handleLogout}
         >
           <LogOut className="h-4 w-4" />
