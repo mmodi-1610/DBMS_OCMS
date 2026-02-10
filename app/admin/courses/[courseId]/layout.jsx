@@ -2,10 +2,10 @@ import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 
-export default async function CoursesLayout({ children }) {
+export default async function AdminCoursesLayout({ children }) {
     const session = await getSession();
 
-    if (!session) {
+    if (!session || session.role !== "admin") {
         redirect("/");
     }
 
