@@ -13,8 +13,8 @@ export async function POST(request) {
 
   try {
     await sql`
-      INSERT INTO enroll (course_id, student_id, enroll_date, approved)
-      VALUES (${courseId}, ${studentId}, NULL, false)
+      INSERT INTO enroll (course_id, student_id, approved)
+      VALUES (${courseId}, ${studentId}, false)
     `;
     return NextResponse.json({ success: true });
   } catch (error) {
