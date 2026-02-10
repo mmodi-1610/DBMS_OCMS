@@ -11,6 +11,7 @@ import {
   BarChart3,
   Users,
   Link2,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -105,7 +106,7 @@ export function AppSidebar({ user }) {
             />
             <SidebarLink
               icon={Link2}
-              label="Assignments"
+              label="Instructors"
               active={activeSection === "admin-assignments"}
               onClick={() => handleNav("admin-assignments")}
             />
@@ -114,6 +115,12 @@ export function AppSidebar({ user }) {
               label="Students"
               active={activeSection === "admin-students"}
               onClick={() => handleNav("admin-students")}
+            />
+            <SidebarLink
+              icon={Building2}
+              label="Universities"
+              active={activeSection === "admin-universities"}
+              onClick={() => handleNav("admin-universities")}
             />
           </>
         )}

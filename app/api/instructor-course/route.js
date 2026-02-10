@@ -7,8 +7,8 @@ export async function POST(request) {
 
     // --- LOGIC 1: ADD NEW INSTRUCTOR ---
     if (body.username && body.password) {
-      const { username, password, name, contacts } = body;
-      
+      const { username, password, name, contacts, universityId } = body;
+
       if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
 
       const maxUserRows = await sql`SELECT COALESCE(MAX(id), 0) AS max_id FROM app_user`;
@@ -22,9 +22,9 @@ export async function POST(request) {
       `;
 
       const newInstructor = await sql`
-        INSERT INTO instructor (instructor_id, user_id, name, contacts)
-        VALUES (${nextInstrId}, ${nextUserId}, ${name}, ${contacts || null})
-        RETURNING *
+      INSERT INTO instructor (instructor_id, user_id, name, contacts, university_id)
+      VALUES (${nextInstrId}, ${nextUserId}, ${name}, ${contacts || null}, ${universityId ? Number(universityId) : null})
+      RETURNING *
       `;
 
       return NextResponse.json({ success: true, instructor: newInstructor[0] });

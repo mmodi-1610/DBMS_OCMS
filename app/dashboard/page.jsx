@@ -66,8 +66,9 @@ async function getAdminData() {
     JOIN instructor i ON ic.instructor_id = i.instructor_id
     JOIN course c ON ic.course_id = c.course_id
   `;
+  const universities = await sql`SELECT * FROM university ORDER BY name ASC`;
 
-  return { courses, students, instructors, instructorCourses };
+  return { courses, students, instructors, instructorCourses, universities };
 }
 
 async function getAnalystData() {

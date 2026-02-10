@@ -14,6 +14,7 @@ export async function GET(request) {
       FROM enroll e
       JOIN course c ON e.course_id = c.course_id
       WHERE e.student_id = ${Number(studentId)}
+        AND e.approved = true
     `;
     return NextResponse.json({ courses });
   } catch (error) {
